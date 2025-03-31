@@ -4,22 +4,26 @@ import axios from 'axios';
 
 const TeamInput = ({ onSimulate }) => {
   const [teamName, setTeamName] = useState('');
+  const [manager, setManager] = useState('');
+  const [clan, setClan] = useState('');
   const [teams, setTeams] = useState([]);
   const [error, setError] = useState('');
 
   const handleAddTeam = () => {
-    if (!teamName.trim()) {
-      setError('El nombre del equipo no puede estar vacío');
-      return;
+    if (!teamName.trim() || !manager.trim()) {
+        setError('El nombre del equipo y el manager no pueden estar vacíos');
+        return;
     }
     
-    if (teams.includes(teamName.trim())) {
+    if (teams.some(team => team.name === teamName.trim())) {
       setError('Este equipo ya fue agregado');
       return;
     }
     
-    setTeams([...teams, teamName.trim()]);
+    setTeams([...teams, { name: teamName.trim(), manager: manager.trim(), clan: clan.trim() || 'Sin Clan' }]);
     setTeamName('');
+    setManager('');
+    setClan('');
     setError('');
   };
 
@@ -34,9 +38,12 @@ const TeamInput = ({ onSimulate }) => {
     }
     
     try {
-      // eslint-disable-next-line no-unused-vars
-      const response = await axios.post('http://localhost:8000/simulate-tournament/', {
-        teams: teams,
+      await axios.post('http://localhost:8000/simulate-tournament/', {
+        teams: teams.map(team => ({
+          name: team.name,
+          manager: team.manager,
+          clan: team.clan || null
+        })),
         jornadas: 42,
         matches_per_jornada: 10
       });
@@ -65,6 +72,20 @@ const TeamInput = ({ onSimulate }) => {
           helperText={error}
           onKeyPress={(e) => e.key === 'Enter' && handleAddTeam()}
         />
+        <TextField
+          label="Manager"
+          value={manager}
+          onChange={(e) => setManager(e.target.value)}
+          fullWidth
+          sx={{ mb: 2 }}
+        />
+        <TextField
+          label="Clan"
+          value={clan}
+          onChange={(e) => setClan(e.target.value)}
+          fullWidth
+          sx={{ mb: 2 }}
+        />
         <Button 
           variant="contained" 
           onClick={handleAddTeam}
@@ -82,8 +103,8 @@ const TeamInput = ({ onSimulate }) => {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {teams.map(team => (
               <Chip
-                key={team}
-                label={team}
+                key={team.name}
+                label={`${team.name} (Manager: ${team.manager}, Clan: ${team.clan})`}
                 onDelete={() => handleRemoveTeam(team)}
               />
             ))}
