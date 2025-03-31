@@ -17,7 +17,7 @@ app = FastAPI(
 # Configuración CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,20 +43,31 @@ def read_teams(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     teams = crud.get_teams(db, skip=skip, limit=limit)
     return teams
 
+@app.put("/teams/{team_id}", response_model=models.Team)
+def update_team(team_id: int, team_update: models.TeamCreate, db: Session = Depends(get_db)):
+    db_team = crud.update_team(db, team_id, team_update)
+    if not db_team:
+        raise HTTPException(status_code=404, detail="Equipo no encontrado")
+    return db_team
+
 @app.post("/simulate-tournament/")
 def simulate_tournament(request: models.SimulationRequest, db: Session = Depends(get_db)):
     # Primero creamos los equipos si no existen
+
     teams_in_db = []
-    for team_name in request.teams:
-        db_team = crud.get_team_by_name(db, name=team_name)
-        if not db_team:
-            db_team = crud.create_team(db, models.TeamCreate(name=team_name))
-        teams_in_db.append(db_team)
+    team_names = []  # Lista de nombres para el simulador
     
-    # Simulamos el torneo
+    for team in request.teams:
+        db_team = crud.get_team_by_name(db, name=team.name)
+        if not db_team:
+            db_team = crud.create_team(db, team)
+        teams_in_db.append(db_team)
+        team_names.append(db_team.name)  # Guardamos solo el nombre
+    
+    # Simulamos el torneo usando solo los nombres
     simulator = simulation.TournamentSimulator()
     simulated_matches = simulator.generate_fixture(
-        teams=request.teams,
+        teams=team_names,  # Pasamos la lista de nombres
         jornadas=request.jornadas,
         matches_per_jornada=request.matches_per_jornada
     )
@@ -64,27 +75,30 @@ def simulate_tournament(request: models.SimulationRequest, db: Session = Depends
     # Guardamos los partidos en la base de datos
     saved_matches = []
     for match in simulated_matches:
+        # Obtenemos los equipos por nombre
         home_team = crud.get_team_by_name(db, name=match["home_team"])
         away_team = crud.get_team_by_name(db, name=match["away_team"])
         
+        # Creamos el objeto MatchCreate
         match_data = models.MatchCreate(
             jornada=match["jornada"],
             home_team_id=home_team.id,
             away_team_id=away_team.id,
-            home_formation=match["alineacion_local"],
-            home_style=match["estilo_local"],
-            home_attack=match["avanzadas_local"],
-            home_kicks=match["patadas_local"],
-            home_possession=match["posesion_local"],
-            home_shots=match["disparos_local"],
-            home_goals=match["goles_local"],
-            away_formation=match["alineacion_visitante"],
-            away_style=match["estilo_visitante"],
-            away_attack=match["avanzadas_visitante"],
-            away_kicks=match["patadas_visitante"],
-            away_possession=match["posesion_visitante"],
-            away_shots=match["disparos_visitante"],
-            away_goals=match["goles_visitante"]
+            # Asegurarse de usar .get() para evitar KeyError con posibles campos faltantes
+            home_formation=match.get("alineacion_local"),
+            home_style=match.get("estilo_local"),
+            home_attack=match.get("avanzadas_local"),
+            home_kicks=match.get("patadas_local"),
+            home_possession=match.get("posesion_local"),
+            home_shots=match.get("disparos_local"),
+            home_goals=match.get("goles_local"),
+            away_formation=match.get("alineacion_visitante"),
+            away_style=match.get("estilo_visitante"),
+            away_attack=match.get("avanzadas_visitante"),
+            away_kicks=match.get("patadas_visitante"),
+            away_possession=match.get("posesion_visitante"),
+            away_shots=match.get("disparos_visitante"),
+            away_goals=match.get("goles_visitante")
         )
         
         db_match = crud.create_match(db, match_data)
