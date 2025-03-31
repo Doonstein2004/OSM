@@ -3,6 +3,8 @@ from typing import List, Optional
 
 class TeamBase(BaseModel):
     name: str
+    manager: str
+    clan: Optional[str] = None
 
 class TeamCreate(TeamBase):
     pass
@@ -55,6 +57,6 @@ class Match(MatchBase):
         from_attributes = True
 
 class SimulationRequest(BaseModel):
-    teams: List[str]
+    teams: List[TeamCreate]
     jornadas: int = 42
     matches_per_jornada: int = 10
