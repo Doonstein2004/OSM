@@ -13,10 +13,24 @@ def get_teams(db: Session, skip: int = 0, limit: int = 100):
     return db.query(schemas.Team).offset(skip).limit(limit).all()
 
 def create_team(db: Session, team: models.TeamCreate):
-    db_team = schemas.Team(name=team.name)
+    db_team = schemas.Team(
+        name=team.name, 
+        manager=team.manager, 
+        clan=team.clan
+    )
+    
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
+    return db_team
+
+def update_team(db: Session, team_id: int, team_update: models.TeamCreate):
+    db_team = db.query(schemas.Team).filter(schemas.Team.id == team_id).first()
+    if db_team:
+        db_team.manager = team_update.manager
+        db_team.clan = team_update.clan
+        db.commit()
+        db.refresh(db_team)
     return db_team
 
 def get_matches(db: Session, skip: int = 0, limit: int = 100):
