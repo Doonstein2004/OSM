@@ -3,7 +3,7 @@ from typing import List, Optional
 
 class TeamBase(BaseModel):
     name: str
-    manager: str
+    manager: Optional[str] = None
     clan: Optional[str] = None
 
 class TeamCreate(TeamBase):
@@ -38,6 +38,8 @@ class MatchCreate(MatchBase):
 
 class Match(MatchBase):
     id: int
+    home_team: Optional[Team] = None
+    away_team: Optional[Team] = None
     home_formation: Optional[str] = None
     home_style: Optional[str] = None
     home_attack: Optional[str] = None
