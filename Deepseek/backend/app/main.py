@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
+from sqlalchemy.orm import joinedload
 
 from . import models, schemas, crud, simulation
 from .database import SessionLocal, engine
@@ -84,21 +85,20 @@ def simulate_tournament(request: models.SimulationRequest, db: Session = Depends
             jornada=match["jornada"],
             home_team_id=home_team.id,
             away_team_id=away_team.id,
-            # Asegurarse de usar .get() para evitar KeyError con posibles campos faltantes
-            home_formation=match.get("alineacion_local"),
-            home_style=match.get("estilo_local"),
-            home_attack=match.get("avanzadas_local"),
-            home_kicks=match.get("patadas_local"),
-            home_possession=match.get("posesion_local"),
-            home_shots=match.get("disparos_local"),
-            home_goals=match.get("goles_local"),
-            away_formation=match.get("alineacion_visitante"),
-            away_style=match.get("estilo_visitante"),
-            away_attack=match.get("avanzadas_visitante"),
-            away_kicks=match.get("patadas_visitante"),
-            away_possession=match.get("posesion_visitante"),
-            away_shots=match.get("disparos_visitante"),
-            away_goals=match.get("goles_visitante")
+            home_formation=match["home_formation"],
+            home_style=match["home_style"],
+            home_attack=match["home_attack"],
+            home_kicks=match["home_kicks"],
+            home_possession=match["home_possession"],
+            home_shots=match["home_shots"],
+            home_goals=match["home_goals"],
+            away_formation=match["away_formation"],
+            away_style=match["away_style"],
+            away_attack=match["away_attack"],
+            away_kicks=match["away_kicks"],
+            away_possession=match["away_possession"],
+            away_shots=match["away_shots"],
+            away_goals=match["away_goals"]
         )
         
         db_match = crud.create_match(db, match_data)
@@ -108,11 +108,15 @@ def simulate_tournament(request: models.SimulationRequest, db: Session = Depends
 
 @app.get("/matches/", response_model=List[models.Match])
 def read_matches(jornada: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    query = db.query(schemas.Match).options(
+        joinedload(schemas.Match.home_team),
+        joinedload(schemas.Match.away_team)
+    )
+    
     if jornada:
-        matches = crud.get_matches_by_jornada(db, jornada=jornada, skip=skip, limit=limit)
-    else:
-        matches = crud.get_matches(db, skip=skip, limit=limit)
-    return matches
+        matches = query.filter(schemas.Match.jornada == jornada)
+    
+    return query.offset(skip).limit(limit).all()
 
 @app.post("/matches/", response_model=models.Match)
 def create_match(match: models.MatchCreate, db: Session = Depends(get_db)):
