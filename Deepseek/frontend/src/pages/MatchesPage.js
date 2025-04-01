@@ -1,83 +1,57 @@
-// MatchesPage.js
-import React, { useState } from 'react';
-import { Box, Container, Typography, Paper, Grid, Tabs, Tab } from '@mui/material';
+import React from 'react';
+import { 
+  Container, 
+  Typography, 
+  Paper, 
+  Box, 
+  Divider,
+  useTheme
+} from '@mui/material';
+import { SportsSoccer as SoccerIcon } from '@mui/icons-material';
 import MatchResults from '../components/MatchResults';
 
 const MatchesPage = () => {
-  const [jornada, setJornada] = useState(null);
-  
-  // Supongamos que tienes 42 jornadas máximo
-  const maxJornadas = 42;
-  const jornadas = Array.from({ length: maxJornadas }, (_, i) => i + 1);
-  
-  const handleChange = (event, newValue) => {
-    setJornada(newValue === 0 ? null : newValue);
-  };
+  const theme = useTheme();
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Paper 
-            elevation={3} 
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          p: 3, 
+          mb: 4, 
+          background: `linear-gradient(to right, ${theme.palette.background.paper}, rgba(19, 47, 76, 0.8))` 
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <SoccerIcon 
             sx={{ 
-              p: 3, 
-              borderRadius: 2,
-              background: 'linear-gradient(to right, rgba(30, 41, 59, 0.8), rgba(30, 41, 59, 0.6))',
-              backdropFilter: 'blur(10px)'
+              mr: 2, 
+              fontSize: 40, 
+              color: theme.palette.secondary.main 
+            }} 
+          />
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            color="primary"
+            sx={{
+              fontWeight: 700,
+              background: `-webkit-linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
             }}
           >
-            <Box mb={3}>
-              <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="primary.light">
-                Resultados de Partidos
-              </Typography>
-              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-                Visualiza los resultados de todos los partidos del torneo
-              </Typography>
-            </Box>
-            
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs 
-                value={jornada === null ? 0 : jornada} 
-                onChange={handleChange}
-                variant="scrollable"
-                scrollButtons="auto"
-                allowScrollButtonsMobile
-                sx={{ 
-                  '& .MuiTabs-indicator': {
-                    backgroundColor: 'primary.main',
-                    height: 3
-                  }
-                }}
-              >
-                <Tab 
-                  label="Todos" 
-                  value={0} 
-                  sx={{ 
-                    fontWeight: 'bold', 
-                    color: jornada === null ? 'primary.main' : 'text.secondary',
-                    '&.Mui-selected': { color: 'primary.main' }
-                  }}
-                />
-                {jornadas.map((j) => (
-                  <Tab 
-                    key={j} 
-                    label={`Jornada ${j}`} 
-                    value={j}
-                    sx={{ 
-                      fontWeight: 'bold', 
-                      color: jornada === j ? 'primary.main' : 'text.secondary',
-                      '&.Mui-selected': { color: 'primary.main' }
-                    }}
-                  />
-                ))}
-              </Tabs>
-            </Box>
-            
-            <MatchResults jornada={jornada} fullPage={true} />
-          </Paper>
-        </Grid>
-      </Grid>
+            RESULTADOS DE PARTIDOS
+          </Typography>
+        </Box>
+        <Divider sx={{ mb: 3 }} />
+        <Typography variant="body1" color="text.secondary" paragraph>
+          Revisa todos los resultados de los partidos del torneo. Para cada partido se muestra el equipo local, visitante y el resultado final, así como información adicional relevante.
+        </Typography>
+      </Paper>
+
+      <MatchResults />
     </Container>
   );
 };

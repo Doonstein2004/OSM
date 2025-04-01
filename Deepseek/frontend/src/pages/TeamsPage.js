@@ -7,11 +7,15 @@ import {
   Divider,
   useTheme
 } from '@mui/material';
-import { Dashboard as DashboardIcon } from '@mui/icons-material';
-import AnalyticsDashboard from '../components/AnalyticsDashboard';
+import { Groups as TeamsIcon } from '@mui/icons-material';
+import TeamInput from '../components/TeamInput';
 
-const AnalyticsPage = () => {
+const TeamsPage = () => {
   const theme = useTheme();
+  const handleSimulate = () => {
+    // La simulación se manejará desde aquí
+    window.location.href = '/';
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -24,7 +28,7 @@ const AnalyticsPage = () => {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <DashboardIcon 
+          <TeamsIcon 
             sx={{ 
               mr: 2, 
               fontSize: 40, 
@@ -42,18 +46,18 @@ const AnalyticsPage = () => {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            ESTADÍSTICAS DEL TORNEO
+            GESTIÓN DE EQUIPOS
           </Typography>
         </Box>
         <Divider sx={{ mb: 3 }} />
         <Typography variant="body1" color="text.secondary" paragraph>
-          Explora datos analíticos sobre el torneo. Visualiza estadísticas detalladas de rendimiento, goles, posesión y otros indicadores clave que te ayudarán a entender mejor el desarrollo de la competición.
+          Configura los equipos que participarán en el torneo. Puedes agregar equipos, establecer sus atributos y luego simular el torneo completo para ver los resultados.
         </Typography>
       </Paper>
 
-      <AnalyticsDashboard />
+      <TeamInput onSimulate={handleSimulate} />
     </Container>
   );
 };
 
-export default AnalyticsPage;
+export default TeamsPage;
