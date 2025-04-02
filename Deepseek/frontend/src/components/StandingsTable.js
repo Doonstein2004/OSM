@@ -47,6 +47,8 @@ const StandingsTable = () => {
     return <LinearProgress />;
   }
 
+
+
   return (
     <Paper elevation={3} sx={{ p: 2, mb: 4 }}>
       <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
@@ -75,7 +77,14 @@ const StandingsTable = () => {
               .map((team, index) => (
                 <TableRow key={team.team_id} hover>
                   <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                  <TableCell>{team.team_name}</TableCell>
+                  <TableCell>
+                    {team.team_name}
+                    {team.team_manager && (
+                      <Typography variant="body2" color="text.secondary">
+                        ({team.team_manager ?? "Computadora"})
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell align="center">{team.played}</TableCell>
                   <TableCell align="center">{team.wins}</TableCell>
                   <TableCell align="center">{team.draws}</TableCell>
