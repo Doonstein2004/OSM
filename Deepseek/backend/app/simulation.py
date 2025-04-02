@@ -58,7 +58,8 @@ class MatchSimulator:
     def generate_attack(self) -> str:
         return f"{random.randint(0, 99)}-{random.randint(0, 99)}-{random.randint(0, 99)}"
     
-    def simulate_match(self, home_team: str, away_team: str) -> Dict:
+    def generate_pre_match_data(self, home_team: str, away_team: str) -> Dict:
+        """Generate only pre-match data without calculating shots, possession, or goals."""
         home_formation = self.generate_formation()
         away_formation = self.generate_formation()
         
@@ -71,15 +72,6 @@ class MatchSimulator:
         home_kicks = random.choice(self.kicks)
         away_kicks = random.choice(self.kicks)
         
-        home_possession = random.randint(40, 65)
-        away_possession = 100 - home_possession
-        
-        home_shots = self.calculate_shots(home_formation, home_style, home_attack)
-        away_shots = self.calculate_shots(away_formation, away_style, away_attack)
-        
-        home_goals = self.calculate_goals(home_shots, home_style, away_formation)
-        away_goals = self.calculate_goals(away_shots, away_style, home_formation)
-        
         return {
             "jornada": 1,
             "home_team": home_team,
@@ -88,57 +80,19 @@ class MatchSimulator:
             "home_style": home_style,
             "home_attack": home_attack,
             "home_kicks": home_kicks,
-            "home_possession": home_possession,
-            "home_shots": home_shots,
-            "home_goals": home_goals,
             "away_formation": away_formation,
             "away_style": away_style,
             "away_attack": away_attack,
             "away_kicks": away_kicks,
-            "away_possession": away_possession,
-            "away_shots": away_shots,
-            "away_goals": away_goals
+            # Set default values for post-match data (to be filled later)
+            "home_possession": None,
+            "away_possession": None,
+            "home_shots": None,
+            "away_shots": None,
+            "home_goals": None,
+            "away_goals": None
         }
 
-    def calculate_shots(self, formation: str, style: str, attack: str) -> int:
-        base_shots = 5
-        
-        if '3' in formation[0]:
-            base_shots += 2
-        elif '2' in formation[0]:
-            base_shots += 1
-        elif '1' in formation[0]:
-            base_shots -= 1
-            
-        if style == 'Disparos':
-            base_shots += 3
-        elif style == 'Contraataque':
-            base_shots += 1
-            
-        attack_forward = int(attack.split('-')[0])
-        base_shots += attack_forward // 30
-        
-        base_shots += random.randint(-2, 2)
-        return max(1, base_shots)
-    
-    def calculate_goals(self, shots: int, style: str, opponent_formation: str) -> int:
-        conversion_rate = 0.12
-        
-        if style == 'Disparos':
-            conversion_rate *= 1.3
-        elif style == 'Balones Largos':
-            conversion_rate *= 0.9
-            
-        if '5' in opponent_formation or '6' in opponent_formation:
-            conversion_rate *= 0.8
-            
-        expected_goals = shots * conversion_rate
-        goals = round(expected_goals)
-        
-        if random.random() < (expected_goals - goals):
-            goals += 1
-            
-        return min(goals, shots)
 
 class TournamentSimulator:
     def __init__(self):
@@ -167,7 +121,7 @@ class TournamentSimulator:
                     break
                     
                 home, away = team_pairs.pop()
-                match_data = self.match_simulator.simulate_match(home, away)
+                match_data = self.match_simulator.generate_pre_match_data(home, away)
                 match_data.update({
                     "jornada": jornada,
                     "home_team": home,

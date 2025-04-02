@@ -122,6 +122,18 @@ def read_matches(jornada: int = None, skip: int = 0, limit: int = 100, db: Sessi
 def create_match(match: models.MatchCreate, db: Session = Depends(get_db)):
     return crud.create_match(db=db, match=match)
 
+@app.patch("/matches/{match_id}", response_model=models.Match)
+def update_match(match_id: int, match_data: models.MatchUpdate, db: Session = Depends(get_db)):
+    """
+    Actualiza un partido existente.
+    Solo se actualizarán los campos incluidos en la solicitud.
+    """
+    updated_match = crud.update_match_db(db, match_id, match_data)
+    if not updated_match:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    
+    return updated_match
+
 @app.get("/standings/")
 def get_standings(db: Session = Depends(get_db)):
     return crud.calculate_standings(db)

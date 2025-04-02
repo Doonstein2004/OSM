@@ -46,6 +46,21 @@ def create_match(db: Session, match: models.MatchCreate):
     db.refresh(db_match)
     return db_match
 
+def update_match_db(db: Session, match_id: int, match_data: models.MatchUpdate):
+    match = db.query(schemas.Match).filter(schemas.Match.id == match_id).first()
+    if not match:
+        return None
+    
+    # Actualiza solo los campos que no son None
+    update_data = match_data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        if value is not None:  # Solo actualiza si el valor no es None
+            setattr(match, key, value)
+    
+    db.commit()
+    db.refresh(match)
+    return match
+
 def calculate_standings(db: Session) -> List[Dict[str, Any]]:
     teams = get_teams(db)
     standings = []
@@ -62,8 +77,8 @@ def calculate_standings(db: Session) -> List[Dict[str, Any]]:
         goals_against = 0
         
         for match in matches_as_home:
-            goals_for += match.home_goals
-            goals_against += match.away_goals
+            goals_for += match.home_goals if match.home_goals is not None else 0
+            goals_against += match.away_goals if match.away_goals is not None else 0
             if match.home_goals > match.away_goals:
                 wins += 1
             elif match.home_goals == match.away_goals:
@@ -127,7 +142,7 @@ def get_tournament_analysis(db: Session) -> Dict[str, Any]:
             "away_shots": match.away_shots,
             "home_goals": match.home_goals,
             "away_goals": match.away_goals,
-            "result": "H" if match.home_goals > match.away_goals else "A" if match.away_goals > match.home_goals else "D"
+            "result": "H" if match.home_goals is not None and match.away_goals is not None and match.home_goals > match.away_goals else "A" if match.home_goals is not None and match.away_goals is not None and match.away_goals > match.home_goals else "D"
         })
     
     df = pd.DataFrame(data)

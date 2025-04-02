@@ -59,6 +59,28 @@ class Match(MatchBase):
     
     class Config:
         from_attributes = True
+        
+class MatchUpdate(BaseModel):
+    jornada: Optional[int] = None
+    home_team_id: Optional[int] = None
+    away_team_id: Optional[int] = None
+    home_formation: Optional[str] = None
+    home_style: Optional[str] = None
+    home_attack: Optional[str] = None
+    home_kicks: Optional[str] = None
+    home_possession: Optional[int] = None
+    home_shots: Optional[int] = None
+    home_goals: Optional[int] = None
+    away_formation: Optional[str] = None
+    away_style: Optional[str] = None
+    away_attack: Optional[str] = None
+    away_kicks: Optional[str] = None
+    away_possession: Optional[int] = None
+    away_shots: Optional[int] = None
+    away_goals: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 class SimulationRequest(BaseModel):
     teams: List[TeamCreate]
