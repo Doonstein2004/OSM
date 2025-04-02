@@ -87,6 +87,7 @@ def calculate_standings(db: Session) -> List[Dict[str, Any]]:
         standings.append({
             "team_id": team.id,
             "team_name": team.name,
+            "team_manager": team.manager,
             "played": played,
             "wins": wins,
             "draws": draws,
