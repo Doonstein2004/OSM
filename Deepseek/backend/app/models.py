@@ -37,7 +37,7 @@ class MatchCreate(MatchBase):
     away_goals: Optional[int] = None
 
 class Match(MatchBase):
-    id: int
+    id: Optional[int] = None
     home_team: Optional[Team] = None
     away_team: Optional[Team] = None
     home_formation: Optional[str] = None

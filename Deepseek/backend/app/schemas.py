@@ -7,7 +7,7 @@ class Team(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    manager = Column(String, unique=True, index=True, nullable=True)
+    manager = Column(String, index=True, nullable=True)
     clan = Column(String, index=True, nullable=True)
     home_matches = relationship("Match", back_populates="home_team", foreign_keys="[Match.home_team_id]")
     away_matches = relationship("Match", back_populates="away_team", foreign_keys="[Match.away_team_id]")
