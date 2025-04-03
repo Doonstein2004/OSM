@@ -69,29 +69,49 @@ def calculate_standings(db: Session) -> List[Dict[str, Any]]:
         matches_as_home = db.query(schemas.Match).filter(schemas.Match.home_team_id == team.id).all()
         matches_as_away = db.query(schemas.Match).filter(schemas.Match.away_team_id == team.id).all()
         
-        played = len(matches_as_home) + len(matches_as_away)
+        played = 0  # Ahora contaremos solo los partidos con resultados completos
         wins = 0
         draws = 0
         losses = 0
         goals_for = 0
         goals_against = 0
         
+        # Procesar partidos como local
         for match in matches_as_home:
-            goals_for += match.home_goals if match.home_goals is not None else 0
-            goals_against += match.away_goals if match.away_goals is not None else 0
-            if match.home_goals > match.away_goals:
+            # Verificar que ambos goles tengan valor
+            if match.home_goals is None or match.away_goals is None:
+                continue  # Saltar partidos sin resultado
+                
+            played += 1
+            home_goals = match.home_goals
+            away_goals = match.away_goals
+            
+            goals_for += home_goals
+            goals_against += away_goals
+            
+            if home_goals > away_goals:
                 wins += 1
-            elif match.home_goals == match.away_goals:
+            elif home_goals == away_goals:
                 draws += 1
             else:
                 losses += 1
                 
+        # Procesar partidos como visitante
         for match in matches_as_away:
-            goals_for += match.away_goals
-            goals_against += match.home_goals
-            if match.away_goals > match.home_goals:
+            # Verificar que ambos goles tengan valor
+            if match.away_goals is None or match.home_goals is None:
+                continue  # Saltar partidos sin resultado
+                
+            played += 1
+            away_goals = match.away_goals
+            home_goals = match.home_goals
+            
+            goals_for += away_goals
+            goals_against += home_goals
+            
+            if away_goals > home_goals:
                 wins += 1
-            elif match.away_goals == match.home_goals:
+            elif away_goals == home_goals:
                 draws += 1
             else:
                 losses += 1
@@ -142,12 +162,16 @@ def get_tournament_analysis(db: Session) -> Dict[str, Any]:
             "away_shots": match.away_shots,
             "home_goals": match.home_goals,
             "away_goals": match.away_goals,
+            "home_shots_on_target": match.home_shots_on_target if hasattr(match, 'home_shots_on_target') else None,
+            "away_shots_on_target": match.away_shots_on_target if hasattr(match, 'away_shots_on_target') else None,
+            "home_fouls": match.home_fouls if hasattr(match, 'home_fouls') else None,
+            "away_fouls": match.away_fouls if hasattr(match, 'away_fouls') else None,
             "result": "H" if match.home_goals is not None and match.away_goals is not None and match.home_goals > match.away_goals else "A" if match.home_goals is not None and match.away_goals is not None and match.away_goals > match.home_goals else "D"
         })
     
     df = pd.DataFrame(data)
     
-    # Análisis básico
+    # Análisis general
     analysis = {
         "total_matches": len(df),
         "home_wins": len(df[df["result"] == "H"]),
@@ -155,23 +179,139 @@ def get_tournament_analysis(db: Session) -> Dict[str, Any]:
         "draws": len(df[df["result"] == "D"]),
         "avg_home_goals": df["home_goals"].mean(),
         "avg_away_goals": df["away_goals"].mean(),
-        "most_common_formations": {
-            "home": df["home_formation"].value_counts().head(3).to_dict(),
-            "away": df["away_formation"].value_counts().head(3).to_dict()
+    }
+    
+    # Análisis por jornada
+    analysis["by_jornada"] = {
+        "goals_trend": df.groupby("jornada")[["home_goals", "away_goals"]].sum().to_dict(),
+        "possession_trend": df.groupby("jornada")[["home_possession", "away_possession"]].mean().to_dict(),
+        "results_distribution": df.groupby("jornada")["result"].value_counts().unstack().fillna(0).to_dict()
+    }
+    
+    # Análisis de formaciones
+    home_formation_stats = df.groupby("home_formation").agg({
+        "home_goals": "mean",
+        "away_goals": "mean",
+        "result": lambda x: (x == "H").mean() * 100  # % de victorias como local
+    }).sort_values("result", ascending=False)
+    
+    away_formation_stats = df.groupby("away_formation").agg({
+        "away_goals": "mean",
+        "home_goals": "mean",
+        "result": lambda x: (x == "A").mean() * 100  # % de victorias como visitante
+    }).sort_values("result", ascending=False)
+    
+    analysis["formations"] = {
+        "home": {
+            "most_common": df["home_formation"].value_counts().head(5).to_dict(),
+            "most_effective": home_formation_stats.head(5).to_dict()
         },
-        "most_effective_styles": {
-            "home": df.groupby("home_style")["home_goals"].mean().sort_values(ascending=False).head(3).to_dict(),
-            "away": df.groupby("away_style")["away_goals"].mean().sort_values(ascending=False).head(3).to_dict()
-        },
+        "away": {
+            "most_common": df["away_formation"].value_counts().head(5).to_dict(),
+            "most_effective": away_formation_stats.head(5).to_dict()
+        }
+    }
+    
+    # Análisis de estilos de juego
+    home_style_stats = df.groupby("home_style").agg({
+        "home_goals": "mean",
+        "away_goals": "mean",
+        "home_possession": "mean",
+        "result": lambda x: (x == "H").mean() * 100  # % de victorias como local
+    }).sort_values("home_goals", ascending=False)
+    
+    away_style_stats = df.groupby("away_style").agg({
+        "away_goals": "mean",
+        "home_goals": "mean",
+        "away_possession": "mean",
+        "result": lambda x: (x == "A").mean() * 100  # % de victorias como visitante
+    }).sort_values("away_goals", ascending=False)
+    
+    analysis["play_styles"] = {
+        "home": home_style_stats.head(5).to_dict(),
+        "away": away_style_stats.head(5).to_dict()
+    }
+    
+    # Efectividad y eficiencia
+    analysis["effectiveness"] = {
         "possession_impact": {
             "home_win": df[df["result"] == "H"]["home_possession"].mean(),
             "away_win": df[df["result"] == "A"]["away_possession"].mean(),
             "draw": df[df["result"] == "D"]["home_possession"].mean()
         },
         "shots_conversion": {
-            "home": (df["home_goals"].sum() / df["home_shots"].sum()) * 100,
-            "away": (df["away_goals"].sum() / df["away_shots"].sum()) * 100
+            "home": (df["home_goals"].sum() / df["home_shots"].sum()) * 100 if df["home_shots"].sum() > 0 else 0,
+            "away": (df["away_goals"].sum() / df["away_shots"].sum()) * 100 if df["away_shots"].sum() > 0 else 0
         }
     }
+    
+    # Análisis de enfrentamientos directos
+    team_matchups = {}
+    teams = set(df["home_team"].unique()) | set(df["away_team"].unique())
+    
+    for team in teams:
+        team_matchups[team] = {}
+        
+        for opponent in teams:
+            if team == opponent:
+                continue
+                
+            # Partidos como local contra este oponente
+            home_matches = df[(df["home_team"] == team) & (df["away_team"] == opponent)]
+            # Partidos como visitante contra este oponente
+            away_matches = df[(df["away_team"] == team) & (df["home_team"] == opponent)]
+            
+            total_matches = len(home_matches) + len(away_matches)
+            
+            if total_matches > 0:
+                wins = len(home_matches[home_matches["result"] == "H"]) + len(away_matches[away_matches["result"] == "A"])
+                draws = len(home_matches[home_matches["result"] == "D"]) + len(away_matches[away_matches["result"] == "D"])
+                losses = total_matches - wins - draws
+                
+                goals_for = home_matches["home_goals"].sum() + away_matches["away_goals"].sum()
+                goals_against = home_matches["away_goals"].sum() + away_matches["home_goals"].sum()
+                
+                team_matchups[team][opponent] = {
+                    "played": total_matches,
+                    "wins": wins,
+                    "draws": draws,
+                    "losses": losses,
+                    "goals_for": float(goals_for),
+                    "goals_against": float(goals_against),
+                    "points": wins * 3 + draws
+                }
+    
+    analysis["team_matchups"] = team_matchups
+    
+    # Estadísticas por local/visitante para cada equipo
+    team_stats = {}
+    for team in teams:
+        home_stats = df[df["home_team"] == team]
+        away_stats = df[df["away_team"] == team]
+        
+        team_stats[team] = {
+            "home": {
+                "played": len(home_stats),
+                "wins": len(home_stats[home_stats["result"] == "H"]),
+                "draws": len(home_stats[home_stats["result"] == "D"]),
+                "losses": len(home_stats[home_stats["result"] == "A"]),
+                "goals_for": float(home_stats["home_goals"].sum()),
+                "goals_against": float(home_stats["away_goals"].sum()),
+                "avg_possession": float(home_stats["home_possession"].mean()),
+                "shots_conversion": float((home_stats["home_goals"].sum() / home_stats["home_shots"].sum()) * 100) if home_stats["home_shots"].sum() > 0 else 0
+            },
+            "away": {
+                "played": len(away_stats),
+                "wins": len(away_stats[away_stats["result"] == "A"]),
+                "draws": len(away_stats[away_stats["result"] == "D"]),
+                "losses": len(away_stats[away_stats["result"] == "H"]),
+                "goals_for": float(away_stats["away_goals"].sum()),
+                "goals_against": float(away_stats["home_goals"].sum()),
+                "avg_possession": float(away_stats["away_possession"].mean()),
+                "shots_conversion": float((away_stats["away_goals"].sum() / away_stats["away_shots"].sum()) * 100) if away_stats["away_shots"].sum() > 0 else 0
+            }
+        }
+    
+    analysis["team_stats"] = team_stats
     
     return analysis

@@ -54,8 +54,6 @@ class Match(MatchBase):
     away_possession: Optional[int] = None
     away_shots: Optional[int] = None
     away_goals: Optional[int] = None
-    home_team: Team
-    away_team: Team
     
     class Config:
         from_attributes = True
