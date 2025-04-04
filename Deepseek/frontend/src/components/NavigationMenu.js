@@ -14,13 +14,22 @@ import {
   Leaderboard as LeaderboardIcon,
   EmojiEvents as TrophyIcon,
   Dashboard as DashboardIcon,
-  Groups as TeamsIcon 
+  Groups as TeamsIcon
 } from '@mui/icons-material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 
 const Navigation = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const location = useLocation();
+
+  // Verificar ruta activa para aplicar destacado
+  const isActive = (path) => {
+    if (path === '/') {
+      return location.pathname === path;
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <AppBar position="sticky" elevation={3} sx={{ 
@@ -64,6 +73,7 @@ const Navigation = () => {
                 color: 'white',
                 display: isMobile ? 'none' : 'flex',
                 fontWeight: 500,
+                borderBottom: isActive('/') ? `2px solid ${theme.palette.secondary.main}` : 'none',
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
                   transform: 'translateY(-2px)',
@@ -75,6 +85,25 @@ const Navigation = () => {
             </Button>
             <Button 
               component={RouterLink} 
+              to="/leagues" 
+              startIcon={<TrophyIcon />}
+              sx={{ 
+                my: 2, 
+                color: 'white',
+                display: isMobile ? 'none' : 'flex',
+                fontWeight: 500,
+                borderBottom: isActive('/leagues') ? `2px solid ${theme.palette.secondary.main}` : 'none',
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.dark,
+                  transform: 'translateY(-2px)',
+                  transition: 'all 0.2s ease-in-out'
+                }
+              }}
+            >
+              Ligas
+            </Button>
+            <Button 
+              component={RouterLink} 
               to="/standings" 
               startIcon={<LeaderboardIcon />}
               sx={{ 
@@ -82,6 +111,7 @@ const Navigation = () => {
                 color: 'white', 
                 display: isMobile ? 'none' : 'flex',
                 fontWeight: 500,
+                borderBottom: isActive('/standings') ? `2px solid ${theme.palette.secondary.main}` : 'none',
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
                   transform: 'translateY(-2px)',
@@ -100,6 +130,7 @@ const Navigation = () => {
                 color: 'white', 
                 display: isMobile ? 'none' : 'flex',
                 fontWeight: 500,
+                borderBottom: isActive('/matches') ? `2px solid ${theme.palette.secondary.main}` : 'none',
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
                   transform: 'translateY(-2px)',
@@ -118,6 +149,7 @@ const Navigation = () => {
                 color: 'white', 
                 display: isMobile ? 'none' : 'flex',
                 fontWeight: 500,
+                borderBottom: isActive('/analytics') ? `2px solid ${theme.palette.secondary.main}` : 'none',
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
                   transform: 'translateY(-2px)',
@@ -136,6 +168,7 @@ const Navigation = () => {
                 color: 'white', 
                 display: isMobile ? 'none' : 'flex',
                 fontWeight: 500,
+                borderBottom: isActive('/teams') ? `2px solid ${theme.palette.secondary.main}` : 'none',
                 '&:hover': {
                   backgroundColor: theme.palette.primary.dark,
                   transform: 'translateY(-2px)',

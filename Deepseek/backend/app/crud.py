@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func, desc
 from . import schemas, models
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import pandas as pd
+import math
 
 def get_team(db: Session, team_id: int):
     return db.query(schemas.Team).filter(schemas.Team.id == team_id).first()
@@ -76,11 +78,18 @@ def calculate_standings(db: Session) -> List[Dict[str, Any]]:
         goals_for = 0
         goals_against = 0
         
+        # Función para validar goles
+        def is_valid_goal(goal):
+            if goal is None:
+                return False
+            if isinstance(goal, float) and math.isnan(goal):
+                return False
+            return True
+        
         # Procesar partidos como local
         for match in matches_as_home:
-            # Verificar que ambos goles tengan valor
-            if match.home_goals is None or match.away_goals is None:
-                continue  # Saltar partidos sin resultado
+            if not all(map(is_valid_goal, [match.home_goals, match.away_goals])):
+                continue
                 
             played += 1
             home_goals = match.home_goals
@@ -98,9 +107,8 @@ def calculate_standings(db: Session) -> List[Dict[str, Any]]:
                 
         # Procesar partidos como visitante
         for match in matches_as_away:
-            # Verificar que ambos goles tengan valor
-            if match.away_goals is None or match.home_goals is None:
-                continue  # Saltar partidos sin resultado
+            if not all(map(is_valid_goal, [match.away_goals, match.home_goals])):
+                continue
                 
             played += 1
             away_goals = match.away_goals
@@ -315,3 +323,475 @@ def get_tournament_analysis(db: Session) -> Dict[str, Any]:
     analysis["team_stats"] = team_stats
     
     return analysis
+
+
+# League CRUD operations
+# League CRUD operations
+def create_league(db: Session, league: models.LeagueCreate):
+    # Crear la liga con los nuevos campos
+    db_league = schemas.League(
+        name=league.name,
+        country=league.country,  # Ahora puede ser None
+        tipo_liga=league.tipo_liga,
+        max_teams=league.max_teams,
+        jornadas=league.jornadas,
+        creator_id=league.creator_id,  # Añadido el ID del creador
+        active=league.active,
+        start_date=league.start_date,
+        end_date=league.end_date,
+        matches_count=0,
+        teams_count=0
+    )
+    db.add(db_league)
+    db.commit()
+    db.refresh(db_league)
+    
+    # Si hay un creador_id y es un equipo, añadirlo automáticamente a la liga
+    if league.creator_id:
+        try:
+            # Verificar si el equipo existe
+            creator_team = db.query(schemas.Team).filter(schemas.Team.id == league.creator_id).first()
+            if creator_team:
+                # Añadir automáticamente el equipo creador a la liga
+                league_team = schemas.LeagueTeam(
+                    league_id=db_league.id,
+                    team_id=league.creator_id,
+                    registration_date=func.now()
+                )
+                db.add(league_team)
+                db.commit()
+        except Exception as e:
+            print(f"Error al añadir el equipo creador a la liga: {e}")
+    
+    return db_league
+
+def get_league(db: Session, league_id: int):
+    # Obtener la liga y calcular los totales
+    db_league = db.query(schemas.League).filter(schemas.League.id == league_id).first()
+    
+    if db_league:
+        # Calcular conteo de partidos
+        db_league.matches_count = db.query(func.count(schemas.Match.id)).filter(
+            schemas.Match.league_id == league_id
+        ).scalar() or 0
+        
+        # Calcular conteo de equipos
+        db_league.teams_count = db.query(func.count(schemas.LeagueTeam.id)).filter(
+            schemas.LeagueTeam.league_id == league_id
+        ).scalar() or 0
+    
+    return db_league
+
+def get_leagues(db: Session, skip: int = 0, limit: int = 100, active_only: bool = False, creator_id: Optional[int] = None):
+    # Obtener ligas con filtros opcionales
+    query = db.query(schemas.League)
+    
+    if active_only:
+        query = query.filter(schemas.League.active == True)
+        
+    if creator_id is not None:
+        query = query.filter(schemas.League.creator_id == creator_id)
+    
+    leagues = query.offset(skip).limit(limit).all()
+    
+    # Calcular conteos para cada liga
+    for league in leagues:
+        # Conteo de partidos
+        league.matches_count = db.query(func.count(schemas.Match.id)).filter(
+            schemas.Match.league_id == league.id
+        ).scalar() or 0
+        
+        # Conteo de equipos
+        league.teams_count = db.query(func.count(schemas.LeagueTeam.id)).filter(
+            schemas.LeagueTeam.league_id == league.id
+        ).scalar() or 0
+    
+    return leagues
+
+def update_league(db: Session, league_id: int, league_data: models.LeagueUpdate):
+    db_league = get_league(db, league_id)
+    if not db_league:
+        return None
+    
+    # Update league data
+    update_data = league_data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_league, key, value)
+    
+    db.commit()
+    db.refresh(db_league)
+    return db_league
+
+def delete_league(db: Session, league_id: int):
+    db_league = get_league(db, league_id)
+    if not db_league:
+        return False
+    
+    db.delete(db_league)
+    db.commit()
+    return True
+
+# League Team CRUD operations
+def add_team_to_league(db: Session, league_team: models.LeagueTeamCreate):
+    # Check if team already exists in league
+    existing = db.query(schemas.LeagueTeam).filter(
+        schemas.LeagueTeam.league_id == league_team.league_id,
+        schemas.LeagueTeam.team_id == league_team.team_id
+    ).first()
+    
+    if existing:
+        return existing
+    
+    # Check if league has space for more teams
+    league = get_league(db, league_team.league_id)
+    teams_count = db.query(func.count(schemas.LeagueTeam.id)).filter(
+        schemas.LeagueTeam.league_id == league_team.league_id
+    ).scalar()
+    
+    if teams_count >= league.max_teams:
+        return None  # League is full
+    
+    db_league_team = schemas.LeagueTeam(
+        league_id=league_team.league_id,
+        team_id=league_team.team_id,
+        registration_date=league_team.registration_date
+    )
+    
+    db.add(db_league_team)
+    db.commit()
+    db.refresh(db_league_team)
+    return db_league_team
+
+def get_league_teams(db: Session, league_id: int):
+    return db.query(schemas.LeagueTeam).filter(
+        schemas.LeagueTeam.league_id == league_id
+    ).all()
+
+def remove_team_from_league(db: Session, league_id: int, team_id: int):
+    db_league_team = db.query(schemas.LeagueTeam).filter(
+        schemas.LeagueTeam.league_id == league_id,
+        schemas.LeagueTeam.team_id == team_id
+    ).first()
+    
+    if not db_league_team:
+        return False
+    
+    db.delete(db_league_team)
+    db.commit()
+    return True
+
+# League statistics
+def calculate_league_statistics(db: Session, league_id: int):
+    # Get all completed matches in the league
+    matches = db.query(schemas.Match).filter(
+        schemas.Match.league_id == league_id,
+        schemas.Match.home_goals != None,
+        schemas.Match.away_goals != None
+    ).all()
+    
+    if not matches:
+        return None
+    
+    total_goals = 0
+    max_goals_in_match = 0
+    max_goals_match_id = None
+    formations = {}
+    styles = {}
+    highest_possession = 0
+    team_goals = {}  # Track goals scored by each team
+    team_goals_against = {}  # Track goals conceded by each team
+    
+    for match in matches:
+        # Total goals in match
+        match_goals = (match.home_goals or 0) + (match.away_goals or 0)
+        total_goals += match_goals
+        
+        # Max goals in a match
+        if match_goals > max_goals_in_match:
+            max_goals_in_match = match_goals
+            max_goals_match_id = match.id
+        
+        # Track formations
+        if match.home_formation:
+            formations[match.home_formation] = formations.get(match.home_formation, 0) + 1
+        if match.away_formation:
+            formations[match.away_formation] = formations.get(match.away_formation, 0) + 1
+        
+        # Track styles
+        if match.home_style:
+            styles[match.home_style] = styles.get(match.home_style, 0) + 1
+        if match.away_style:
+            styles[match.away_style] = styles.get(match.away_style, 0) + 1
+        
+        # Track highest possession
+        if match.home_possession and match.home_possession > highest_possession:
+            highest_possession = match.home_possession
+        if match.away_possession and match.away_possession > highest_possession:
+            highest_possession = match.away_possession
+        
+        # Track team goals
+        if match.home_team_id not in team_goals:
+            team_goals[match.home_team_id] = 0
+            team_goals_against[match.home_team_id] = 0
+        if match.away_team_id not in team_goals:
+            team_goals[match.away_team_id] = 0
+            team_goals_against[match.away_team_id] = 0
+        
+        if match.home_goals:
+            team_goals[match.home_team_id] += match.home_goals
+            team_goals_against[match.away_team_id] += match.home_goals
+        
+        if match.away_goals:
+            team_goals[match.away_team_id] += match.away_goals
+            team_goals_against[match.home_team_id] += match.away_goals
+    
+    # Find most common formation and style
+    most_common_formation = max(formations.items(), key=lambda x: x[1])[0] if formations else None
+    most_common_style = max(styles.items(), key=lambda x: x[1])[0] if styles else None
+    
+    # Find team with most goals and best defense
+    team_with_most_goals_id = max(team_goals.items(), key=lambda x: x[1])[0] if team_goals else None
+    team_with_best_defense_id = min(team_goals_against.items(), key=lambda x: x[1])[0] if team_goals_against else None
+    
+    # Save or update statistics
+    db_stats = db.query(schemas.LeagueStatistics).filter(
+        schemas.LeagueStatistics.league_id == league_id
+    ).first()
+    
+    if not db_stats:
+        db_stats = schemas.LeagueStatistics(
+            league_id=league_id,
+            total_goals=total_goals,
+            avg_goals_per_match=total_goals / len(matches) if matches else 0,
+            max_goals_in_match=max_goals_in_match,
+            most_common_formation=most_common_formation,
+            most_common_style=most_common_style,
+            highest_possession=highest_possession,
+            team_with_most_goals_id=team_with_most_goals_id,
+            team_with_best_defense_id=team_with_best_defense_id
+        )
+        db.add(db_stats)
+    else:
+        db_stats.total_goals = total_goals
+        db_stats.avg_goals_per_match = total_goals / len(matches) if matches else 0
+        db_stats.max_goals_in_match = max_goals_in_match
+        db_stats.most_common_formation = most_common_formation
+        db_stats.most_common_style = most_common_style
+        db_stats.highest_possession = highest_possession
+        db_stats.team_with_most_goals_id = team_with_most_goals_id
+        db_stats.team_with_best_defense_id = team_with_best_defense_id
+    
+    db.commit()
+    db.refresh(db_stats)
+    return db_stats
+
+def calculate_league_standings(db: Session, league_id: int):
+    # Get all teams in the league
+    league_teams = get_league_teams(db, league_id)
+    team_ids = [lt.team_id for lt in league_teams]
+    
+    # Initialize standings
+    standings = {team_id: {
+        "team_id": team_id,
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goals_for": 0,
+        "goals_against": 0,
+        "goal_difference": 0,
+        "points": 0
+    } for team_id in team_ids}
+    
+    # Get all completed matches in the league
+    matches = db.query(schemas.Match).filter(
+        schemas.Match.league_id == league_id,
+        schemas.Match.home_goals != None,
+        schemas.Match.away_goals != None
+    ).all()
+    
+    # Calculate standings
+    for match in matches:
+        home_id = match.home_team_id
+        away_id = match.away_team_id
+        
+        # Skip if teams are not in the league (could happen if teams were removed)
+        if home_id not in standings or away_id not in standings:
+            continue
+        
+        home_goals = match.home_goals or 0
+        away_goals = match.away_goals or 0
+        
+        # Update matches played
+        standings[home_id]["played"] += 1
+        standings[away_id]["played"] += 1
+        
+        # Update goals
+        standings[home_id]["goals_for"] += home_goals
+        standings[home_id]["goals_against"] += away_goals
+        standings[away_id]["goals_for"] += away_goals
+        standings[away_id]["goals_against"] += home_goals
+        
+        # Update win/draw/loss and points
+        if home_goals > away_goals:
+            standings[home_id]["won"] += 1
+            standings[away_id]["lost"] += 1
+            standings[home_id]["points"] += 3
+        elif away_goals > home_goals:
+            standings[away_id]["won"] += 1
+            standings[home_id]["lost"] += 1
+            standings[away_id]["points"] += 3
+        else:
+            standings[home_id]["drawn"] += 1
+            standings[away_id]["drawn"] += 1
+            standings[home_id]["points"] += 1
+            standings[away_id]["points"] += 1
+    
+    # Calculate goal difference
+    for team_id in standings:
+        standings[team_id]["goal_difference"] = standings[team_id]["goals_for"] - standings[team_id]["goals_against"]
+    
+    # Sort by points, then goal difference, then goals scored
+    sorted_standings = sorted(
+        standings.values(),
+        key=lambda x: (x["points"], x["goal_difference"], x["goals_for"]),
+        reverse=True
+    )
+    
+    # Add team details
+    for i, team_standing in enumerate(sorted_standings):
+        team = db.query(schemas.Team).filter(schemas.Team.id == team_standing["team_id"]).first()
+        sorted_standings[i]["team"] = team
+        sorted_standings[i]["position"] = i + 1
+    
+    return sorted_standings
+
+def update_league_podium(db: Session, league_id: int):
+    standings = calculate_league_standings(db, league_id)
+    if len(standings) < 3:
+        return None
+    
+    league = get_league(db, league_id)
+    if not league:
+        return None
+    
+    # Update podium
+    league.winner_id = standings[0]["team_id"]
+    league.runner_up_id = standings[1]["team_id"]
+    league.third_place_id = standings[2]["team_id"]
+    
+    db.commit()
+    db.refresh(league)
+    return league
+
+# Match operations with league support
+def create_league_match(db: Session, match: models.MatchCreate):
+    # Check if teams are in the league
+    for team_id in [match.home_team_id, match.away_team_id]:
+        team_in_league = db.query(schemas.LeagueTeam).filter(
+            schemas.LeagueTeam.league_id == match.league_id,
+            schemas.LeagueTeam.team_id == team_id
+        ).first()
+        
+        if not team_in_league:
+            return None  # Team not in league
+    
+    db_match = schemas.Match(
+        jornada=match.jornada,
+        home_team_id=match.home_team_id,
+        away_team_id=match.away_team_id,
+        league_id=match.league_id,
+        home_formation=match.home_formation,
+        home_style=match.home_style,
+        home_attack=match.home_attack,
+        home_kicks=match.home_kicks,
+        home_possession=match.home_possession,
+        home_shots=match.home_shots,
+        home_goals=match.home_goals,
+        away_formation=match.away_formation,
+        away_style=match.away_style,
+        away_attack=match.away_attack,
+        away_kicks=match.away_kicks,
+        away_possession=match.away_possession,
+        away_shots=match.away_shots,
+        away_goals=match.away_goals
+    )
+    
+    db.add(db_match)
+    db.commit()
+    db.refresh(db_match)
+    return db_match
+
+def get_league_matches(db: Session, league_id: int, jornada: Optional[int] = None):
+    query = db.query(schemas.Match).filter(schemas.Match.league_id == league_id)
+    
+    if jornada is not None:
+        query = query.filter(schemas.Match.jornada == jornada)
+    
+    return query.all()
+
+def generate_league_fixture(db: Session, league_id: int, simulator):
+    # Get all teams in the league
+    league_teams = get_league_teams(db, league_id)
+    team_ids = [lt.team_id for lt in league_teams]
+    
+    # Get team names for simulation
+    teams = []
+    for team_id in team_ids:
+        team = db.query(schemas.Team).filter(schemas.Team.id == team_id).first()
+        if team:
+            teams.append(team.name)
+    
+    # Get league details
+    league = get_league(db, league_id)
+    if not league:
+        return None
+    
+    # Calculate matches per jornada
+    teams_count = len(teams)
+    matches_per_jornada = teams_count // 2  # Each team plays one match per jornada
+    
+    # Generate fixtures using the simulator
+    simulated_matches = simulator.generate_fixture(
+        teams=teams,
+        jornadas=league.jornadas,
+        matches_per_jornada=matches_per_jornada
+    )
+    
+    # Save matches with league ID
+    saved_matches = []
+    for match in simulated_matches:
+        # Get team IDs by name
+        home_team = db.query(schemas.Team).filter(schemas.Team.name == match["home_team"]).first()
+        away_team = db.query(schemas.Team).filter(schemas.Team.name == match["away_team"]).first()
+        
+        if not home_team or not away_team:
+            continue
+        
+        # Create match with league ID
+        match_data = models.MatchCreate(
+            jornada=match["jornada"],
+            home_team_id=home_team.id,
+            away_team_id=away_team.id,
+            league_id=league_id,
+            home_formation=match["home_formation"],
+            home_style=match["home_style"],
+            home_attack=match["home_attack"],
+            home_kicks=match["home_kicks"],
+            home_possession=match["home_possession"],
+            home_shots=match["home_shots"],
+            home_goals=match["home_goals"],
+            away_formation=match["away_formation"],
+            away_style=match["away_style"],
+            away_attack=match["away_attack"],
+            away_kicks=match["away_kicks"],
+            away_possession=match["away_possession"],
+            away_shots=match["away_shots"],
+            away_goals=match["away_goals"]
+        )
+        
+        db_match = create_league_match(db, match_data)
+        if db_match:
+            saved_matches.append(db_match)
+    
+    return saved_matches

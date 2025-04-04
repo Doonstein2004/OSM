@@ -1,7 +1,7 @@
 import React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import darkTheme from './styles/theme';
 import Navigation from './components/NavigationMenu';
@@ -10,6 +10,8 @@ import TeamsPage from './pages/TeamsPage';
 import MatchesPage from './pages/MatchesPage';
 import StandingsPage from './pages/StandingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import LeaguesPage from './pages/LeaguesPage';
+import LeagueDetailsPage from './pages/LeagueDetailsPage';
 import Footer from './components/Footer';
 
 function App() {
@@ -32,6 +34,25 @@ function App() {
               <Route path="/matches" element={<MatchesPage />} />
               <Route path="/standings" element={<StandingsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
+              
+              {/* Rutas para ligas */}
+              <Route path="/leagues" element={<LeaguesPage />} />
+              <Route path="/leagues/create" element={<LeaguesPage />} />
+              <Route path="/leagues/:leagueId" element={<LeagueDetailsPage />} />
+              
+              {/* Estas rutas redirigen a la página principal de detalles con una pestaña específica */}
+              <Route 
+                path="/leagues/:leagueId/matches" 
+                element={<Navigate to="/leagues/:leagueId" replace />} 
+              />
+              <Route 
+                path="/leagues/:leagueId/standings" 
+                element={<Navigate to="/leagues/:leagueId" replace />} 
+              />
+              <Route 
+                path="/leagues/:leagueId/statistics" 
+                element={<Navigate to="/leagues/:leagueId" replace />} 
+              />
             </Routes>
           </Box>
           <Footer />
