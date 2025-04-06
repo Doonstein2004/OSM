@@ -13,7 +13,9 @@ class Team(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     manager = Column(String, index=True, nullable=True)
+    manager_id = Column(String, index=True, nullable=True)  # Nuevo campo
     clan = Column(String, index=True, nullable=True)
+    value = Column(String, nullable=True)  
     home_matches = relationship("Match", back_populates="home_team", foreign_keys="[Match.home_team_id]")
     away_matches = relationship("Match", back_populates="away_team", foreign_keys="[Match.away_team_id]")
     league_teams = relationship("LeagueTeam", back_populates="team")
@@ -26,27 +28,39 @@ class Team(Base):
 
 
 # Definir enumeración para tipos de liga
-class TipoLiga(enum.Enum):
+class TipoLiga(str, enum.Enum):
     LIGA_TACTICA = "Liga Tactica"
     LIGA_INTERNA = "Liga Interna"
     TORNEO = "Torneo"
     BATALLAS = "Batallas"
 
 
+# Actualizar el esquema League
 class League(Base):
     __tablename__ = "leagues"
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    country = Column(String, index=True, nullable=True)  # País ahora puede ser nulo
+    country = Column(String, index=True, nullable=True)  # País puede ser nulo
     tipo_liga = Column(Enum(TipoLiga), index=True)
     max_teams = Column(Integer)
     jornadas = Column(Integer)
-    creator_id = Column(Integer, ForeignKey("teams.id"), nullable=True)  # ID del creador
+    manager_id = Column(String, index=True, nullable=True)  # ID del manager (string)
+    manager_name = Column(String, nullable=True)  # Nombre del manager para mostrar
     active = Column(Boolean, default=True)
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    
+    # Estadísticas de valor de equipos
+    highest_value_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    lowest_value_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    avg_team_value = Column(Float, nullable=True)
+    value_difference = Column(Float, nullable=True)
+    
+    # Añadir estas columnas para poder pasar los valores
+    matches_count = Column(Integer, default=0)
+    teams_count = Column(Integer, default=0)
     
     # Podium (winners)
     winner_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
@@ -57,13 +71,14 @@ class League(Base):
     matches = relationship("Match", back_populates="league")
     league_teams = relationship("LeagueTeam", back_populates="league")
     
-    # Creador
-    creator = relationship("Team", foreign_keys=[creator_id], backref="created_leagues")
-    
     # Podium relationships
     winner = relationship("Team", back_populates="winner_of_leagues", foreign_keys=[winner_id])
     runner_up = relationship("Team", back_populates="runner_up_of_leagues", foreign_keys=[runner_up_id])
     third_place = relationship("Team", back_populates="third_place_of_leagues", foreign_keys=[third_place_id])
+    
+    # Valor relationships
+    highest_value_team = relationship("Team", foreign_keys=[highest_value_team_id])
+    lowest_value_team = relationship("Team", foreign_keys=[lowest_value_team_id])
     
     # Statistics
     statistics = relationship("LeagueStatistics", back_populates="league", uselist=False)

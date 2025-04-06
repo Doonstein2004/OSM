@@ -1,14 +1,22 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict
+from enum import Enum
 from datetime import datetime
 
 TipoLiga = Literal["Liga Tactica", "Liga Interna", "Torneo", "Batallas"]
+
+class TipoLiga(str, Enum):
+    LIGA_TACTICA = "Liga Tactica"
+    LIGA_INTERNA = "Liga Interna"
+    TORNEO = "Torneo"
+    BATALLAS = "Batallas"
 
 
 class TeamBase(BaseModel):
     name: str
     manager: Optional[str] = None
     clan: Optional[str] = None
+    value: Optional[str] = None  # Valor del equipo (ej: "30,3M")
 
 class TeamCreate(TeamBase):
     pass
@@ -19,17 +27,35 @@ class Team(TeamBase):
     class Config:
         from_attributes = True
         
-# New League models
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = None
+    manager: Optional[str] = None
+    manager_id: Optional[str] = None
+    clan: Optional[str] = None
+    value: Optional[str] = None
+        
+
+# Actualizar el modelo LeagueBase
 class LeagueBase(BaseModel):
     name: str
-    country: Optional[str] = None  # País ahora es opcional
+    country: Optional[str] = None
     tipo_liga: TipoLiga
+    league_type: Optional[str] = "League"  # "League" o "Tournament"
     max_teams: int
     jornadas: int
-    creator_id: Optional[int] = None  # ID del creador de la liga
+    manager_id: Optional[str] = None
+    manager_name: Optional[str] = None
     active: bool = True
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    highest_value_team_id: Optional[int] = None
+    lowest_value_team_id: Optional[int] = None
+    avg_team_value: Optional[float] = None
+    value_difference: Optional[float] = None
+
+class LeagueCreate(LeagueBase):
+    pass
 
 class LeagueCreate(LeagueBase):
     pass
@@ -38,12 +64,18 @@ class LeagueUpdate(BaseModel):
     name: Optional[str] = None
     country: Optional[str] = None
     tipo_liga: Optional[TipoLiga] = None
+    league_type: Optional[str] = None
     max_teams: Optional[int] = None
     jornadas: Optional[int] = None
-    creator_id: Optional[int] = None
+    manager_id: Optional[str] = None
+    manager_name: Optional[str] = None
     active: Optional[bool] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    highest_value_team_id: Optional[int] = None
+    lowest_value_team_id: Optional[int] = None
+    avg_team_value: Optional[float] = None
+    value_difference: Optional[float] = None
     winner_id: Optional[int] = None
     runner_up_id: Optional[int] = None
     third_place_id: Optional[int] = None
@@ -62,11 +94,13 @@ class League(LeagueBase):
         
         
 class LeagueWithDetails(League):
-    winner: Optional["Team"] = None
-    runner_up: Optional["Team"] = None
-    third_place: Optional["Team"] = None
-    creator: Optional["Team"] = None  # Información del creador
-    teams: List["Team"] = []
+    winner: Optional[Team] = None
+    runner_up: Optional[Team] = None
+    third_place: Optional[Team] = None
+    highest_value_team: Optional[Team] = None
+    lowest_value_team: Optional[Team] = None
+    teams: List[Team] = []
+    creator: Optional[Dict[str, str]] = None  # Nuevo campo para información del creador
     
     class Config:
         from_attributes = True
@@ -85,6 +119,17 @@ class LeagueTeam(LeagueTeamBase):
     
     class Config:
         from_attributes = True
+        
+# Modelo para cargar ligas predefinidas desde JSON
+class LeagueTemplateImport(BaseModel):
+    template_name: str  # Nombre del archivo JSON a importar
+
+# Modelo para la selección de liga predefinida
+class LeagueTemplateSelect(BaseModel):
+    league_name: str  # Nombre de la liga en el JSON
+    tipo_liga: TipoLiga  # Tipo de liga a crear
+    manager_id: str  # ID del manager que creará la liga
+    manager_name: str  # Nombre del manager
 
 class LeagueTeamWithDetails(LeagueTeam):
     team: Team

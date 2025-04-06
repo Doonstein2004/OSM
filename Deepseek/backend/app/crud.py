@@ -26,13 +26,17 @@ def create_team(db: Session, team: models.TeamCreate):
     db.refresh(db_team)
     return db_team
 
-def update_team(db: Session, team_id: int, team_update: models.TeamCreate):
+def update_team(db: Session, team_id: int, team_data: models.TeamUpdate):
     db_team = db.query(schemas.Team).filter(schemas.Team.id == team_id).first()
-    if db_team:
-        db_team.manager = team_update.manager
-        db_team.clan = team_update.clan
-        db.commit()
-        db.refresh(db_team)
+    if not db_team:
+        return None
+    
+    update_data = team_data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_team, key, value)
+    
+    db.commit()
+    db.refresh(db_team)
     return db_team
 
 def get_matches(db: Session, skip: int = 0, limit: int = 100):
@@ -326,16 +330,16 @@ def get_tournament_analysis(db: Session) -> Dict[str, Any]:
 
 
 # League CRUD operations
-# League CRUD operations
 def create_league(db: Session, league: models.LeagueCreate):
-    # Crear la liga con los nuevos campos
+    # Crear la liga con manager en lugar de creator
     db_league = schemas.League(
         name=league.name,
-        country=league.country,  # Ahora puede ser None
+        country=league.country,
         tipo_liga=league.tipo_liga,
         max_teams=league.max_teams,
         jornadas=league.jornadas,
-        creator_id=league.creator_id,  # Añadido el ID del creador
+        manager_id=league.manager_id,
+        manager_name=league.manager_name,
         active=league.active,
         start_date=league.start_date,
         end_date=league.end_date,
@@ -345,24 +349,6 @@ def create_league(db: Session, league: models.LeagueCreate):
     db.add(db_league)
     db.commit()
     db.refresh(db_league)
-    
-    # Si hay un creador_id y es un equipo, añadirlo automáticamente a la liga
-    if league.creator_id:
-        try:
-            # Verificar si el equipo existe
-            creator_team = db.query(schemas.Team).filter(schemas.Team.id == league.creator_id).first()
-            if creator_team:
-                # Añadir automáticamente el equipo creador a la liga
-                league_team = schemas.LeagueTeam(
-                    league_id=db_league.id,
-                    team_id=league.creator_id,
-                    registration_date=func.now()
-                )
-                db.add(league_team)
-                db.commit()
-        except Exception as e:
-            print(f"Error al añadir el equipo creador a la liga: {e}")
-    
     return db_league
 
 def get_league(db: Session, league_id: int):
@@ -382,15 +368,15 @@ def get_league(db: Session, league_id: int):
     
     return db_league
 
-def get_leagues(db: Session, skip: int = 0, limit: int = 100, active_only: bool = False, creator_id: Optional[int] = None):
+def get_leagues(db: Session, skip: int = 0, limit: int = 100, active_only: bool = False, manager_id: Optional[str] = None):
     # Obtener ligas con filtros opcionales
     query = db.query(schemas.League)
     
     if active_only:
         query = query.filter(schemas.League.active == True)
         
-    if creator_id is not None:
-        query = query.filter(schemas.League.creator_id == creator_id)
+    if manager_id is not None:
+        query = query.filter(schemas.League.manager_id == manager_id)
     
     leagues = query.offset(skip).limit(limit).all()
     
@@ -408,6 +394,10 @@ def get_leagues(db: Session, skip: int = 0, limit: int = 100, active_only: bool 
     
     return leagues
 
+def get_manager_leagues(db: Session, manager_id: str, active_only: bool = False):
+    """Obtener todas las ligas creadas por un manager específico"""
+    return get_leagues(db, active_only=active_only, manager_id=manager_id)
+
 def update_league(db: Session, league_id: int, league_data: models.LeagueUpdate):
     db_league = get_league(db, league_id)
     if not db_league:
@@ -423,13 +413,20 @@ def update_league(db: Session, league_id: int, league_data: models.LeagueUpdate)
     return db_league
 
 def delete_league(db: Session, league_id: int):
-    db_league = get_league(db, league_id)
-    if not db_league:
-        return False
+    # Primero eliminar los equipos asociados a la liga
+    db.query(schemas.LeagueTeam).filter(schemas.LeagueTeam.league_id == league_id).delete()
     
-    db.delete(db_league)
+    # Eliminar los partidos de la liga
+    db.query(schemas.Match).filter(schemas.Match.league_id == league_id).delete()
+    
+    # Eliminar las estadísticas de la liga
+    db.query(schemas.LeagueStatistics).filter(schemas.LeagueStatistics.league_id == league_id).delete()
+    
+    # Por último, eliminar la liga
+    result = db.query(schemas.League).filter(schemas.League.id == league_id).delete()
+    
     db.commit()
-    return True
+    return result > 0
 
 # League Team CRUD operations
 def add_team_to_league(db: Session, league_team: models.LeagueTeamCreate):

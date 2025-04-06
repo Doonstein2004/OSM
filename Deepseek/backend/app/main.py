@@ -1,14 +1,20 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import joinedload
+import os, json
 from datetime import datetime
+import urllib.parse
 
 from . import models, schemas, crud, simulation
 from .database import SessionLocal, engine
+from .league_templates import LeagueTemplateLoader
 
 schemas.Base.metadata.create_all(bind=engine)
+
+# Inicializar el loader de plantillas
+template_loader = LeagueTemplateLoader()
 
 app = FastAPI(
     title="Simulador de Torneo de Fútbol",
@@ -44,6 +50,15 @@ def create_team(team: models.TeamCreate, db: Session = Depends(get_db)):
 def read_teams(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     teams = crud.get_teams(db, skip=skip, limit=limit)
     return teams
+
+@app.put("/teams/{team_id}", response_model=models.Team)
+def update_team(team_id: int, team_data: models.TeamUpdate, db: Session = Depends(get_db)):
+    db_team = crud.get_team(db, team_id)
+    if not db_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    updated_team = crud.update_team(db, team_id, team_data)
+    return updated_team
 
 @app.put("/teams/{team_id}", response_model=models.Team)
 def update_team(team_id: int, team_update: models.TeamCreate, db: Session = Depends(get_db)):
@@ -152,10 +167,15 @@ def read_leagues(
     skip: int = 0, 
     limit: int = 100, 
     active_only: bool = False,
-    creator_id: Optional[int] = None,  # Parámetro añadido
+    manager_id: Optional[str] = None,  # Parámetro actualizado
     db: Session = Depends(get_db)
 ):
-    return crud.get_leagues(db, skip=skip, limit=limit, active_only=active_only, creator_id=creator_id)
+    return crud.get_leagues(db, skip=skip, limit=limit, active_only=active_only, manager_id=manager_id)
+
+# Este endpoint permite obtener todas las ligas creadas por un manager específico
+@app.get("/managers/{manager_id}/leagues", response_model=List[models.League])
+def get_manager_leagues(manager_id: str, active_only: bool = False, db: Session = Depends(get_db)):
+    return crud.get_manager_leagues(db, manager_id, active_only=active_only)
 
 @app.get("/leagues/{league_id}", response_model=models.LeagueWithDetails)
 def read_league(league_id: int, db: Session = Depends(get_db)):
@@ -174,7 +194,11 @@ def read_league(league_id: int, db: Session = Depends(get_db)):
     # Create response model
     league_details = models.LeagueWithDetails(
         **{k: getattr(db_league, k) for k in dir(db_league) if not k.startswith('_') and k != 'metadata'},
-        teams=teams
+        teams=teams,
+        creator={
+            "id": db_league.manager_id,
+            "name": db_league.manager_name
+        } if db_league.manager_id or db_league.manager_name else None
     )
     
     return league_details
@@ -232,6 +256,10 @@ def simulate_league(
     league = crud.get_league(db, league_id)
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
+    
+    # Verificar que haya equipos en la solicitud
+    if not request.teams or len(request.teams) < 2:
+        raise HTTPException(status_code=400, detail="Se necesitan al menos 2 equipos para simular una liga")
     
     # Verify teams exist and are in the league
     for team_id in request.teams:
@@ -336,3 +364,148 @@ def get_team_leagues(team_id: int, active_only: bool = False, db: Session = Depe
     
     # Obtener ligas donde este equipo es el creador
     return crud.get_leagues(db, active_only=active_only, creator_id=team_id)
+
+
+@app.post("/templates/upload")
+async def upload_template(
+    template_name: str,
+    file: UploadFile,
+    db: Session = Depends(get_db)
+):
+    """Sube un nuevo archivo JSON de plantillas de ligas"""
+    try:
+        # Guardar el archivo
+        file_path = os.path.join(template_loader.templates_dir, f"{template_name}.json")
+        
+        # Leer el contenido del archivo
+        content = await file.read()
+        
+        # Verificar que sea un JSON válido
+        try:
+            json_data = json.loads(content)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON file")
+        
+        # Guardar el archivo
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        # Actualizar la caché
+        template_loader.templates_cache[template_name] = json_data
+        
+        # Contar ligas en el archivo
+        league_count = len(json_data)
+        
+        return {
+            "detail": f"Template uploaded successfully with {league_count} leagues",
+            "template_name": template_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading template: {str(e)}")
+    
+    
+# Endpoint para listar todas las plantillas disponibles
+@app.get("/templates")
+def list_templates():
+    """Lista todas las plantillas disponibles"""
+    try:
+        templates = []
+        for filename in os.listdir(template_loader.templates_dir):
+            if filename.endswith(".json"):
+                template_name = filename[:-5]  # Eliminar extensión .json
+                templates.append(template_name)
+        
+        return {"templates": templates}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing templates: {str(e)}")
+
+# Endpoint para listar todas las ligas en una plantilla
+@app.get("/templates/{template_name}/leagues")
+def list_template_leagues(
+    template_name: str,
+    type: Optional[str] = None,
+    min_teams: Optional[int] = None,
+    max_teams: Optional[int] = None,
+    search: Optional[str] = None
+):
+    """Lista todas las ligas en una plantilla con filtros opcionales"""
+    try:
+        # Obtener ligas por tipo (si se especificó)
+        leagues = template_loader.get_leagues_by_type(template_name, type)
+        
+        # Aplicar filtros adicionales
+        filtered_leagues = []
+        for league in leagues:
+            # Filtrar por número de equipos
+            team_count = league.get("team_count", len(league.get("teams", [])))
+            if min_teams is not None and team_count < min_teams:
+                continue
+            if max_teams is not None and team_count > max_teams:
+                continue
+            
+            # Filtrar por búsqueda de texto
+            if search and search.lower() not in league["name"].lower():
+                continue
+            
+            filtered_leagues.append({
+                "name": league["name"],
+                "type": league.get("type", "League"),
+                "team_count": team_count,
+                # Información de valor si está disponible
+                "team_values": [team.get("value") for team in league.get("teams", [])]
+            })
+        
+        return {"leagues": filtered_leagues}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing leagues: {str(e)}")
+
+# Endpoint para obtener detalles de una liga específica
+@app.get("/templates/{template_name}/leagues/{league_name:path}")
+def get_template_league(template_name: str, league_name: str):
+    """Obtiene los detalles de una liga específica de una plantilla"""
+    try:
+        # Decodificar el nombre de la liga para manejar caracteres especiales
+        decoded_league_name = urllib.parse.unquote(league_name)
+        
+        league = template_loader.get_league_by_name(template_name, decoded_league_name)
+        if not league:
+            raise HTTPException(status_code=404, detail=f"League {decoded_league_name} not found in template {template_name}")
+        
+        return league
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting league: {str(e)}")
+
+# Endpoint para crear una liga a partir de una plantilla
+@app.post("/templates/{template_name}/create-league")
+def create_league_from_template(
+    template_name: str,
+    league_select: models.LeagueTemplateSelect,
+    db: Session = Depends(get_db)
+):
+    """Crea una liga a partir de una plantilla"""
+    try:
+        # Crear liga desde plantilla
+        created_league, created_teams = template_loader.create_league_from_template(
+            db=db,
+            template_name=template_name,
+            league_name=league_select.league_name,
+            tipo_liga=league_select.tipo_liga,
+            manager_id=league_select.manager_id,
+            manager_name=league_select.manager_name
+        )
+        
+        return {
+            "detail": f"League created successfully with {len(created_teams)} teams",
+            "league_id": created_league.id,
+            "league_name": created_league.name,
+            "teams_count": len(created_teams)
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating league: {str(e)}")
