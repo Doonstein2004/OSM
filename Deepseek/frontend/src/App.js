@@ -1,9 +1,11 @@
+// Actualizar App.js para incluir la nueva ruta de plantillas de ligas
+
 import React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
-import darkTheme from './styles/theme';
+import darkTheme  from './styles/theme';
 import Navigation from './components/NavigationMenu';
 import HomePage from './pages/HomePage';
 import TeamsPage from './pages/TeamsPage';
@@ -38,6 +40,7 @@ function App() {
               {/* Rutas para ligas */}
               <Route path="/leagues" element={<LeaguesPage />} />
               <Route path="/leagues/create" element={<LeaguesPage />} />
+              <Route path="/leagues/templates" element={<LeaguesPage />} />
               <Route path="/leagues/:leagueId" element={<LeagueDetailsPage />} />
               
               {/* Estas rutas redirigen a la página principal de detalles con una pestaña específica */}

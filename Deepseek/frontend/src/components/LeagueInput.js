@@ -10,13 +10,12 @@ import {
   FormControl, 
   InputLabel,
   FormHelperText,
-  Chip,
-  IconButton,
   Divider,
   CircularProgress,
   Alert,
-  Switch,
-  FormControlLabel
+  Stepper,
+  Step,
+  StepLabel
 } from '@mui/material';
 import { 
   AddCircle as AddIcon, 
@@ -26,24 +25,32 @@ import {
   Person as PersonIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const LeagueInput = ({ onCreateLeague }) => {
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [showCountry, setShowCountry] = useState(false);
   const [country, setCountry] = useState('');
   const [tipoLiga, setTipoLiga] = useState('');
   const [maxTeams, setMaxTeams] = useState(20);
   const [jornadas, setJornadas] = useState(38);
-  const [availableTeams, setAvailableTeams] = useState([]);
-  const [selectedTeams, setSelectedTeams] = useState([]);
-  const [selectedTeam, setSelectedTeam] = useState('');
-  const [creatorTeam, setCreatorTeam] = useState('');
+  const [managerName, setManagerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [errorDetails, setErrorDetails] = useState('');
+  
+  // Obtener el manager ID y nombre del local storage (del login)
+  const [manager, setManager] = useState(() => {
+    // En una aplicación real, estos datos vendrían de un sistema de autenticación
+    const loggedUser = {
+      id: localStorage.getItem('userId') || 'user123',
+      name: localStorage.getItem('userName') || 'Usuario Actual'
+    };
+    return loggedUser;
+  });
 
   // Tipos de liga disponibles
   const tiposLiga = [
@@ -63,56 +70,6 @@ const LeagueInput = ({ onCreateLeague }) => {
     }
   }, [tipoLiga]);
 
-  // Fetch available teams
-  useEffect(() => {
-    const fetchTeams = async () => {
-      try {
-        setIsFetching(true);
-        const response = await axios.get('http://localhost:8000/teams/');
-        setAvailableTeams(response.data);
-        setIsFetching(false);
-      } catch (err) {
-        const errorMsg = 'Error al cargar equipos: ' + (err.response?.data?.detail || err.message);
-        setError(errorMsg);
-        setIsFetching(false);
-      }
-    };
-
-    fetchTeams();
-  }, []);
-
-  const handleAddTeam = () => {
-    if (!selectedTeam) {
-      setError('Selecciona un equipo primero');
-      return;
-    }
-
-    const team = availableTeams.find(team => team.id === selectedTeam);
-    
-    if (selectedTeams.some(t => t.id === team.id)) {
-      setError('Este equipo ya ha sido agregado a la liga');
-      return;
-    }
-
-    if (selectedTeams.length >= maxTeams) {
-      setError(`No puedes agregar más de ${maxTeams} equipos a esta liga`);
-      return;
-    }
-    
-    setSelectedTeams([...selectedTeams, team]);
-    setSelectedTeam('');
-    setError('');
-  };
-
-  const handleRemoveTeam = (teamToRemove) => {
-    setSelectedTeams(selectedTeams.filter(team => team.id !== teamToRemove.id));
-    
-    // Si el equipo removido es el creador, resetear el creador
-    if (teamToRemove.id === parseInt(creatorTeam)) {
-      setCreatorTeam('');
-    }
-  };
-
   const validateForm = () => {
     if (!name.trim()) {
       setError('El nombre de la liga es obligatorio');
@@ -129,13 +86,8 @@ const LeagueInput = ({ onCreateLeague }) => {
       return false;
     }
     
-    if (selectedTeams.length < 2) {
-      setError('Se necesitan al menos 2 equipos para crear una liga');
-      return false;
-    }
-    
-    if (!creatorTeam) {
-      setError('Debes seleccionar un equipo como creador de la liga');
+    if (!manager.id || !manager.name) {
+      setError('No hay información del manager actual');
       return false;
     }
 
@@ -152,14 +104,15 @@ const LeagueInput = ({ onCreateLeague }) => {
     
     try {
       console.log("Creando liga...");
-      // First create the league
+      // Crear la liga
       const leagueResponse = await axios.post('http://localhost:8000/leagues/', {
         name: name.trim(),
         country: showCountry ? country.trim() : null,
         tipo_liga: tipoLiga,
         max_teams: maxTeams,
         jornadas: jornadas,
-        creator_id: parseInt(creatorTeam), // ID del equipo creador
+        manager_id: manager.id,
+        manager_name: manager.name,
         active: true,
         start_date: new Date().toISOString()
       });
@@ -167,24 +120,7 @@ const LeagueInput = ({ onCreateLeague }) => {
       console.log("Liga creada:", leagueResponse.data);
       const leagueId = leagueResponse.data.id;
       
-      // Then add teams to the league (except creator, which is added automatically)
-      console.log(`Añadiendo ${selectedTeams.length} equipos a la liga...`);
-      const teamsToAdd = selectedTeams.filter(team => team.id !== parseInt(creatorTeam));
-      
-      const teamPromises = teamsToAdd.map(team => 
-        axios.post(`http://localhost:8000/leagues/${leagueId}/teams/${team.id}`)
-      );
-      
-      await Promise.all(teamPromises);
-      
-      // Finally simulate the league
-      console.log("Simulando liga...");
-      await axios.post(`http://localhost:8000/leagues/${leagueId}/simulate`, {
-        teams: selectedTeams.map(team => team.id),
-        jornadas: jornadas
-      });
-      
-      setSuccess('Liga creada y simulada exitosamente');
+      setSuccess('Liga creada exitosamente. Ahora puedes añadir equipos y simular partidos.');
       setIsLoading(false);
       
       // Reset form
@@ -193,13 +129,14 @@ const LeagueInput = ({ onCreateLeague }) => {
       setTipoLiga('');
       setMaxTeams(20);
       setJornadas(38);
-      setSelectedTeams([]);
-      setCreatorTeam('');
       
       // Call parent callback if provided
       if (onCreateLeague) {
         onCreateLeague(leagueId);
       }
+      
+      // Opcional: redirigir a la página de detalles de la liga
+      navigate(`/leagues/${leagueId}`);
       
     } catch (err) {
       console.error("Error al crear liga:", err);
@@ -217,11 +154,6 @@ const LeagueInput = ({ onCreateLeague }) => {
       setErrorDetails(details);
       setIsLoading(false);
     }
-  };
-
-  const getAvailableTeamsOptions = () => {
-    const selectedIds = selectedTeams.map(team => team.id);
-    return availableTeams.filter(team => !selectedIds.includes(team.id));
   };
 
   // Ajustar número de jornadas según tipo de liga
@@ -362,79 +294,21 @@ const LeagueInput = ({ onCreateLeague }) => {
           />
         </Box>
         
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-          <FormControl fullWidth required error={!!error && error.includes('creador')}>
-            <InputLabel>Equipo Creador</InputLabel>
-            <Select
-              value={creatorTeam}
-              onChange={(e) => setCreatorTeam(e.target.value)}
-              label="Equipo Creador"
-              disabled={isFetching || selectedTeams.length === 0}
-              startAdornment={<PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />}
-            >
-              {selectedTeams.map(team => (
-                <MenuItem key={team.id} value={team.id}>
-                  {team.name} {team.manager ? `(${team.manager})` : ''}
-                </MenuItem>
-              ))}
-            </Select>
-            <FormHelperText>
-              Selecciona el equipo que será el creador y administrador de la liga
-            </FormHelperText>
-          </FormControl>
-        </Box>
+        <TextField
+          label="Manager de la Liga"
+          value={manager.name}
+          InputProps={{
+            readOnly: true,
+            startAdornment: <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+          }}
+          helperText="La liga será creada por el usuario actual"
+          fullWidth
+        />
       </Box>
       
-      <Typography variant="subtitle1" sx={{ mb: 1, mt: 3 }}>
-        Equipos de la Liga
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Después de crear la liga, podrás añadir equipos y simular partidos desde la página de detalles.
       </Typography>
-      
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
-        <FormControl fullWidth error={!!error && error.includes('equipo')}>
-          <InputLabel>Seleccionar Equipo</InputLabel>
-          <Select
-            value={selectedTeam}
-            onChange={(e) => setSelectedTeam(e.target.value)}
-            label="Seleccionar Equipo"
-            disabled={isFetching || getAvailableTeamsOptions().length === 0}
-          >
-            {getAvailableTeamsOptions().map(team => (
-              <MenuItem key={team.id} value={team.id}>
-                {team.name} {team.manager ? `(${team.manager})` : ''}
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>
-            {isFetching ? 'Cargando equipos...' : 
-             getAvailableTeamsOptions().length === 0 ? 'No hay más equipos disponibles' : 
-             `${selectedTeams.length}/${maxTeams} equipos seleccionados`}
-          </FormHelperText>
-        </FormControl>
-        
-        <IconButton 
-          color="primary" 
-          onClick={handleAddTeam}
-          disabled={isFetching || !selectedTeam || selectedTeams.length >= maxTeams}
-          sx={{ mt: 1 }}
-        >
-          <AddIcon />
-        </IconButton>
-      </Box>
-      
-      {selectedTeams.length > 0 && (
-        <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {selectedTeams.map(team => (
-            <Chip
-              key={team.id}
-              label={`${team.name} ${team.manager ? `(${team.manager})` : ''}`}
-              onDelete={() => handleRemoveTeam(team)}
-              color={team.id === parseInt(creatorTeam) ? "secondary" : "primary"}
-              variant={team.id === parseInt(creatorTeam) ? "filled" : "outlined"}
-              sx={team.id === parseInt(creatorTeam) ? { fontWeight: 'bold' } : {}}
-            />
-          ))}
-        </Box>
-      )}
       
       <Button
         variant="contained"
@@ -445,7 +319,7 @@ const LeagueInput = ({ onCreateLeague }) => {
         startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
         sx={{ mt: 2 }}
       >
-        {isLoading ? 'Creando Liga...' : 'Crear y Simular Liga'}
+        {isLoading ? 'Creando Liga...' : 'Crear Liga'}
       </Button>
     </Paper>
   );

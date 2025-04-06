@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+// Actualización de LeaguesPage.js para incluir el selector de plantillas
+
+import React, { useState } from 'react';
 import { 
   Container, 
   Typography, 
@@ -12,10 +14,13 @@ import {
 } from '@mui/material';
 import { 
   EmojiEvents as TrophyIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  FormatListBulleted as ListIcon,
+  Dashboard as DashboardIcon
 } from '@mui/icons-material';
 import LeagueInput from '../components/LeagueInput';
 import LeagueList from '../components/LeagueList';
+import LeagueTemplateSelector from '../components/LeagueTemplateSelector';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const LeaguesPage = () => {
@@ -25,23 +30,21 @@ const LeaguesPage = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Determinar la pestaña activa basada en la ruta
-  const [activeTab, setActiveTab] = useState(location.pathname === '/leagues/create' ? 1 : 0);
+  const [activeTab, setActiveTab] = useState(() => {
+    if (location.pathname === '/leagues/create') return 1;
+    if (location.pathname === '/leagues/templates') return 2;
+    return 0;
+  });
 
   // Actualizar la URL cuando se cambia de pestaña
-  useEffect(() => {
-    if (location.pathname === '/leagues/create' && activeTab !== 1) {
-      setActiveTab(1);
-    } else if (location.pathname === '/leagues' && activeTab !== 0) {
-      setActiveTab(0);
-    }
-  }, [location.pathname, activeTab]);
-
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
-    navigate(newValue === 1 ? '/leagues/create' : '/leagues');
+    if (newValue === 0) navigate('/leagues');
+    if (newValue === 1) navigate('/leagues/create');
+    if (newValue === 2) navigate('/leagues/templates');
   };
 
-  const handleCreateLeague = () => {
+  const handleCreateLeague = (leagueId) => {
     // Switch to league list tab after creation
     setActiveTab(0);
     navigate('/leagues');
@@ -83,7 +86,7 @@ const LeaguesPage = () => {
         <Divider sx={{ mb: 3 }} />
         
         <Typography variant="body1" color="text.secondary" paragraph>
-          Crea y gestiona ligas de fútbol para tus equipos. Puedes configurar parámetros como la temporada, el número de equipos y jornadas, y ver estadísticas detalladas de cada liga.
+          Crea y gestiona ligas de fútbol para tus equipos. Puedes configurar parámetros como el tipo de liga, el número de equipos y jornadas, y ver estadísticas detalladas de cada liga.
         </Typography>
       </Paper>
       
@@ -104,14 +107,21 @@ const LeaguesPage = () => {
             label="Ligas Existentes" 
             id="leagues-tab-0"
             aria-controls="leagues-tabpanel-0"
-            icon={<TrophyIcon />}
+            icon={<ListIcon />}
             iconPosition="start"
           />
           <Tab 
-            label="Crear Nueva Liga" 
+            label="Crear Liga Manual" 
             id="leagues-tab-1"
             aria-controls="leagues-tabpanel-1"
             icon={<AddIcon />}
+            iconPosition="start"
+          />
+          <Tab 
+            label="Ligas Predefinidas" 
+            id="leagues-tab-2"
+            aria-controls="leagues-tabpanel-2"
+            icon={<DashboardIcon />}
             iconPosition="start"
           />
         </Tabs>
@@ -133,6 +143,15 @@ const LeaguesPage = () => {
         aria-labelledby="leagues-tab-1"
       >
         {activeTab === 1 && <LeagueInput onCreateLeague={handleCreateLeague} />}
+      </Box>
+      
+      <Box
+        role="tabpanel"
+        hidden={activeTab !== 2}
+        id="leagues-tabpanel-2"
+        aria-labelledby="leagues-tab-2"
+      >
+        {activeTab === 2 && <LeagueTemplateSelector onLeagueCreate={handleCreateLeague} />}
       </Box>
     </Container>
   );

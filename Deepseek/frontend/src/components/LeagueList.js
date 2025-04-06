@@ -92,9 +92,20 @@ const LeagueList = () => {
   };
 
   const getCountryFlag = (country) => {
-    // Placeholder para banderas de países
-    const countryCode = country.toLowerCase().slice(0, 2);
-    return `https://flagcdn.com/w40/${countryCode}.png`;
+    try {
+      // Si country es nulo o indefinido, entrará en el catch
+      const countryCode = (country || "").toLowerCase().slice(0, 2);
+      
+      // Si no hay código de país válido, usa un valor predeterminado
+      if (!countryCode || countryCode.length < 2) {
+        return "/placeholder-flag.png";
+      }
+      
+      return `https://flagcdn.com/w40/${countryCode}.png`;
+    } catch (error) {
+      console.warn("Error al procesar el código de país:", error);
+      return "/placeholder-flag.png";
+    }
   };
 
   const viewLeagueMatches = (leagueId) => {
@@ -186,7 +197,7 @@ const LeagueList = () => {
             >
               <ListItemAvatar>
                 <Avatar 
-                  alt={league.country} 
+                  alt={league.country || "Sin país"} 
                   src={getCountryFlag(league.country)}
                   sx={{ bgcolor: theme.palette.primary.main }}
                 >

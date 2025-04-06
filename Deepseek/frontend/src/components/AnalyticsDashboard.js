@@ -44,6 +44,13 @@ import axios from 'axios';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d', '#ffc658'];
 
+const safeToFixed = (num, digits = 2) => {
+  if (num === undefined || num === null || isNaN(num)) {
+    return 'N/A';
+  }
+  return Number(num).toFixed(digits);
+};
+
 const TabPanel = (props) => {
   const { children, value, index, ...other } = props;
 
@@ -125,10 +132,10 @@ const AnalyticsDashboard = () => {
     .map(([name, value]) => ({ name, value })).slice(0, 5);
 
   const homeStyleData = Object.entries(analytics.play_styles?.home?.home_goals || {})
-    .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) })).slice(0, 5);
+    .map(([name, value]) => ({ name, value: parseFloat(safeToFixed(value, 2)) })).slice(0, 5);
 
   const awayStyleData = Object.entries(analytics.play_styles?.away?.away_goals || {})
-    .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) })).slice(0, 5);
+    .map(([name, value]) => ({ name, value: parseFloat(safeToFixed(value, 2)) })).slice(0, 5);
 
   const journeyTrendData = analytics.by_jornada ? 
     Object.entries(analytics.by_jornada.goals_trend?.home_goals || {}).map(([jornada, goals]) => ({
@@ -203,7 +210,7 @@ const AnalyticsDashboard = () => {
                     cy="50%"
                     outerRadius={80}
                     dataKey="value"
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                    label={({ name, percent }) => `${name}: ${safeToFixed(percent * 100, 1)}%`}
                   >
                     {resultData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -229,14 +236,14 @@ const AnalyticsDashboard = () => {
               <Paper elevation={2} sx={{ p: 2 }}>
                 <Typography variant="subtitle1">Goles promedio por partido</Typography>
                 <Typography variant="h6">
-                  Local: {analytics.avg_home_goals.toFixed(2)} - Visitante: {analytics.avg_away_goals.toFixed(2)}
+                  Local: {safeToFixed(analytics.avg_home_goals, 2)} - Visitante: {safeToFixed(analytics.avg_away_goals, 2)}
                 </Typography>
               </Paper>
               
               <Paper elevation={2} sx={{ p: 2 }}>
                 <Typography variant="subtitle1">Porcentaje de conversión de disparos</Typography>
                 <Typography variant="h6">
-                  Local: {analytics.effectiveness?.shots_conversion?.home.toFixed(2)}% - Visitante: {analytics.effectiveness?.shots_conversion?.away.toFixed(2)}%
+                  Local: {safeToFixed(analytics.effectiveness?.shots_conversion?.home, 2)}% - Visitante: {safeToFixed(analytics.effectiveness?.shots_conversion?.away, 2)}%
                 </Typography>
               </Paper>
             </Box>
