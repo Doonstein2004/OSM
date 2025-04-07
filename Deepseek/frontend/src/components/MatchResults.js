@@ -20,15 +20,17 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField
+  TextField,
+  Alert
 } from '@mui/material';
 import axios from 'axios';
 
-const MatchResults = ({ onUpdateMatch }) => {
+const MatchResults = ({ leagueId, onUpdateMatch }) => {
   const [matches, setMatches] = useState([]);
   const [jornadas, setJornadas] = useState([]);
   const [selectedJornada, setSelectedJornada] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   
   // States for edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -43,13 +45,25 @@ const MatchResults = ({ onUpdateMatch }) => {
   });
 
   useEffect(() => {
-    fetchMatches();
-  }, []);
+    if (leagueId && leagueId !== 'undefined') {
+      fetchMatches();
+    }
+  }, [leagueId]);
 
   const fetchMatches = async () => {
     try {
+      if (!leagueId || leagueId === 'undefined') {
+        setError('ID de liga no válido');
+        setLoading(false);
+        return;
+      }
+      
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/matches/');
+      setError('');
+      
+      // Fetch matches for the specific league
+      const response = await axios.get(`http://localhost:8000/leagues/${leagueId}/matches`);
+      
       const processedMatches = response.data.map(match => ({
         ...match,
         home_team: match.home_team || { name: 'Equipo Desconocido', manager: 'Sin manager' },
@@ -74,6 +88,7 @@ const MatchResults = ({ onUpdateMatch }) => {
       }
     } catch (error) {
       console.error('Error fetching matches:', error);
+      setError('Error al cargar los partidos: ' + (error.response?.data?.detail || error.message));
       setMatches([]);
     } finally {
       setLoading(false);
@@ -150,7 +165,7 @@ const MatchResults = ({ onUpdateMatch }) => {
       
       // Notify parent component if needed
       if (onUpdateMatch) {
-        onUpdateMatch(editingMatch.id);
+        onUpdateMatch();
       }
     } catch (error) {
       console.error('Error updating match results:', error);
@@ -165,9 +180,17 @@ const MatchResults = ({ onUpdateMatch }) => {
            match.away_possession !== null;
   };
 
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mb: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
   return (
-    <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h6">
           Resultados de Partidos
         </Typography>
@@ -179,153 +202,155 @@ const MatchResults = ({ onUpdateMatch }) => {
             value={selectedJornada || ''}
             label="Jornada"
             onChange={handleJornadaChange}
+            disabled={jornadas.length === 0}
           >
             {jornadas.map(jornada => (
-              <MenuItem key={jornada} value={jornada}>{jornada}</MenuItem>
+              <MenuItem key={jornada} value={jornada}>Jornada {jornada}</MenuItem>
             ))}
           </Select>
         </FormControl>
       </Box>
       
       {loading ? (
-        <LinearProgress />
+        <Box sx={{ width: '100%', mt: 2, mb: 4 }}>
+          <LinearProgress />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+            Cargando partidos...
+          </Typography>
+        </Box>
       ) : (
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Local</TableCell>
-                <TableCell align="center">Resultado</TableCell>
-                <TableCell>Visitante</TableCell>
-                <TableCell>Alineación/Estilo</TableCell>
-                <TableCell>Avanzadas/Patadas</TableCell>
-                <TableCell>Posesión</TableCell>
-                <TableCell>Tiros</TableCell>
-                <TableCell>Acciones</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredMatches.length > 0 ? (
-                filteredMatches.map((match) => (
-                  <TableRow 
-                    key={match.id} 
-                    hover
-                    sx={isMatchPlayed(match) ? { backgroundColor: 'rgba(76, 175, 80, 0.1)' } : {}}
-                  >
-                    {/* Equipo Local */}
-                    <TableCell>
-                      <Typography variant="body1" fontWeight="bold">
-                        {match.home_team.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Manager: {match.home_team.manager}
-                      </Typography>
-                    </TableCell>
-                    
-                    {/* Resultado */}
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-                      <Typography variant="h6">
-                        {match.home_goals !== null ? match.home_goals : '-'} - {match.away_goals !== null ? match.away_goals : '-'}
-                      </Typography>
-                    </TableCell>
-                    
-                    {/* Equipo Visitante */}
-                    <TableCell>
-                      <Typography variant="body1" fontWeight="bold">
-                        {match.away_team.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Manager: {match.away_team.manager}
-                      </Typography>
-                    </TableCell>
-                    
-                    {/* Alineación y Estilo */}
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2">
-                          {match.home_formation}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ({match.home_style})
-                        </Typography>
-                        <Divider sx={{ my: 1 }} />
-                        <Typography variant="body2">
-                          {match.away_formation}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ({match.away_style})
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    
-                    {/* Avanzadas y Patadas */}
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2">
-                          {match.home_attack}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ({match.home_kicks})
-                        </Typography>
-                        <Divider sx={{ my: 1 }} />
-                        <Typography variant="body2">
-                          {match.away_attack}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ({match.away_kicks})
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    
-                    {/* Posesión */}
-                    <TableCell>
-                      <Box textAlign="center">
-                        <Typography variant="body2" color="primary">
-                          {match.home_possession !== null ? `${match.home_possession}%` : '-'}
-                        </Typography>
-                        <Divider sx={{ my: 1 }} />
-                        <Typography variant="body2" color="secondary">
-                          {match.away_possession !== null ? `${match.away_possession}%` : '-'}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    
-                    {/* Tiros */}
-                    <TableCell>
-                      <Box textAlign="center">
-                        <Typography variant="body2">
-                          {match.home_shots !== null ? match.home_shots : '-'}
-                        </Typography>
-                        <Divider sx={{ my: 1 }} />
-                        <Typography variant="body2">
-                          {match.away_shots !== null ? match.away_shots : '-'}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    
-                    {/* Acciones */}
-                    <TableCell>
-                      <Button 
-                        size="small" 
-                        onClick={() => openEditDialog(match)}
-                        variant="outlined"
-                        color={isMatchPlayed(match) ? "success" : "primary"}
-                      >
-                        {isMatchPlayed(match) ? "Actualizar" : "Ingresar datos"}
-                      </Button>
-                    </TableCell>
+        <>
+          {matches.length === 0 ? (
+            <Box sx={{ 
+              textAlign: 'center', 
+              py: 6,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              color: 'text.secondary'
+            }}>
+              <Typography variant="h6" color="text.secondary">
+                No hay partidos disponibles para esta liga
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Utiliza la pestaña "Simular" para generar partidos
+              </Typography>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Local</TableCell>
+                    <TableCell align="center">Resultado</TableCell>
+                    <TableCell>Visitante</TableCell>
+                    <TableCell>Alineación/Estilo</TableCell>
+                    <TableCell>Posesión</TableCell>
+                    <TableCell>Tiros</TableCell>
+                    <TableCell>Acciones</TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    No hay partidos disponibles para esta jornada
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {filteredMatches.length > 0 ? (
+                    filteredMatches.map((match) => (
+                      <TableRow 
+                        key={match.id} 
+                        hover
+                        sx={isMatchPlayed(match) ? { backgroundColor: 'rgba(76, 175, 80, 0.1)' } : {}}
+                      >
+                        {/* Equipo Local */}
+                        <TableCell>
+                          <Typography variant="body1" fontWeight="bold">
+                            {match.home_team.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {match.home_formation}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Resultado */}
+                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                          <Typography variant="h6">
+                            {match.home_goals !== null ? match.home_goals : '-'} - {match.away_goals !== null ? match.away_goals : '-'}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Equipo Visitante */}
+                        <TableCell>
+                          <Typography variant="body1" fontWeight="bold">
+                            {match.away_team.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {match.away_formation}
+                          </Typography>
+                        </TableCell>
+                        
+                        {/* Alineación y Estilo */}
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2">
+                              {match.home_style}
+                            </Typography>
+                            <Divider sx={{ my: 1 }} />
+                            <Typography variant="body2">
+                              {match.away_style}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        
+                        {/* Posesión */}
+                        <TableCell>
+                          <Box textAlign="center">
+                            <Typography variant="body2" color="primary">
+                              {match.home_possession !== null ? `${match.home_possession}%` : '-'}
+                            </Typography>
+                            <Divider sx={{ my: 1 }} />
+                            <Typography variant="body2" color="secondary">
+                              {match.away_possession !== null ? `${match.away_possession}%` : '-'}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        
+                        {/* Tiros */}
+                        <TableCell>
+                          <Box textAlign="center">
+                            <Typography variant="body2">
+                              {match.home_shots !== null ? match.home_shots : '-'}
+                            </Typography>
+                            <Divider sx={{ my: 1 }} />
+                            <Typography variant="body2">
+                              {match.away_shots !== null ? match.away_shots : '-'}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        
+                        {/* Acciones */}
+                        <TableCell>
+                          <Button 
+                            size="small" 
+                            onClick={() => openEditDialog(match)}
+                            variant="outlined"
+                            color={isMatchPlayed(match) ? "success" : "primary"}
+                          >
+                            {isMatchPlayed(match) ? "Actualizar" : "Ingresar datos"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        No hay partidos disponibles para esta jornada
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </>
       )}
 
       {/* Dialog for editing match results */}
@@ -423,7 +448,7 @@ const MatchResults = ({ onUpdateMatch }) => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </>
   );
 };
 

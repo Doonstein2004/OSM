@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Container, 
@@ -44,6 +43,7 @@ import LeagueSimulation from '../components/LeagueSimulation';
 import LeagueTeamManager from '../components/LeagueTeamManager';
 import LeagueCreatorManager from '../components/LeagueCreatorManager';
 import LeagueDeletionManager from '../components/LeagueDeletionManager';
+import MatchResults from '../components/MatchResults';
 import axios from 'axios';
 
 const LeagueDetailsPage = () => {
@@ -290,14 +290,14 @@ const LeagueDetailsPage = () => {
                 <Stack spacing={1.5}>
                   <Typography variant="subtitle1" fontWeight="bold">Resultados finales</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <EmojiEvents sx={{ mr: 1.5, color: 'gold' }} />
+                    <TrophyIcon sx={{ mr: 1.5, color: 'gold' }} />
                     <Typography variant="body1">
                       <strong>Campeón:</strong> {league.winner.name}
                     </Typography>
                   </Box>
                   {league.runner_up && (
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <EmojiEvents sx={{ mr: 1.5, color: 'silver' }} />
+                      <TrophyIcon sx={{ mr: 1.5, color: 'silver' }} />
                       <Typography variant="body1">
                         <strong>Subcampeón:</strong> {league.runner_up.name}
                       </Typography>
@@ -310,7 +310,7 @@ const LeagueDetailsPage = () => {
                     variant="contained" 
                     color="secondary" 
                     startIcon={<PlayIcon />}
-                    onClick={() => setActiveTab(3)}
+                    onClick={() => setActiveTab(4)} // Actualizado para reflejar el nuevo índice de la pestaña Simular
                     size="large"
                     fullWidth
                     sx={{ 
@@ -414,9 +414,16 @@ const LeagueDetailsPage = () => {
             iconPosition="start"
           />
           <Tab 
-            label="Simular" 
+            label="Resultados" 
             id="tab-3"
             aria-controls="tabpanel-3"
+            icon={<EditIcon />}
+            iconPosition="start"
+          />
+          <Tab 
+            label="Simular" 
+            id="tab-4"
+            aria-controls="tabpanel-4"
             icon={<PlayIcon />}
             iconPosition="start"
           />
@@ -459,6 +466,20 @@ const LeagueDetailsPage = () => {
           aria-labelledby="tab-3"
         >
           {activeTab === 3 && (
+            <MatchResults 
+              leagueId={leagueId} 
+              onUpdateMatch={fetchLeagueData}
+            />
+          )}
+        </Box>
+
+        <Box
+          role="tabpanel"
+          hidden={activeTab !== 4}
+          id="tabpanel-4"
+          aria-labelledby="tab-4"
+        >
+          {activeTab === 4 && (
             <LeagueSimulation 
               leagueId={leagueId} 
               onSimulationComplete={() => {
