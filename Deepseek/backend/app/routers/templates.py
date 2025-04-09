@@ -1,3 +1,5 @@
+# app/routers/templates.py
+
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session

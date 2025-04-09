@@ -6,15 +6,15 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import darkTheme  from './styles/theme';
-import Navigation from './components/NavigationMenu';
-import HomePage from './pages/HomePage';
-import TeamsPage from './pages/TeamsPage';
-import MatchesPage from './pages/MatchesPage';
-import StandingsPage from './pages/StandingsPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import LeaguesPage from './pages/LeaguesPage';
-import LeagueDetailsPage from './pages/LeagueDetailsPage';
-import Footer from './components/Footer';
+import Navigation from './components/navigation/index';
+import HomePage from './pages/HomePage/index';
+import TeamsPage from './pages/TeamsPage/index';
+import MatchesPage from './pages/MatchesPage/index';
+import StandingsPage from './pages/StandingsPage/index';
+import AnalyticsPage from './pages/AnalyticsPage/index';
+import LeaguesPage from './pages/LeaguesPage/index';
+import LeagueDetailsPage from './pages/LeagueDetailsPage/index';
+import Footer from './components/footer/Footer';
 
 function App() {
   return (

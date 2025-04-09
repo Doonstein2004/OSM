@@ -1,6 +1,9 @@
+# app/models/matches.py
+
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date
+from ..models.teams import Team as TeamModel  # Modelo Pydantic para equipos
 
 class MatchBase(BaseModel):
     jornada: int
@@ -80,11 +83,12 @@ class Match(MatchBase):
     away_fouls: Optional[int] = None
     created_at: datetime
     updated_at: datetime
-    home_team: Dict[str, Any]
-    away_team: Dict[str, Any]
+    home_team: Optional[TeamModel] = None
+    away_team: Optional[TeamModel] = None
     
     class Config:
         from_attributes = True
+        populate_by_name = True  # Esto también puede ser útil
 
 class MatchStatistics(BaseModel):
     match_id: int

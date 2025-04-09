@@ -1,15 +1,17 @@
+# app/crud/leagues.py
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
 # Importaciones correctas
-from ..models.leagues import League, LeagueTeam
-from ..models.teams import Team
-from ..models.matches import Match
-from ..models.statistics import LeagueStatistics
-from ..models.calendar import Calendar
-from ..schemas.leagues import LeagueCreate, LeagueUpdate, LeagueTeamCreate, TipoLiga
+from ..schemas.leagues import League, LeagueTeam
+from ..schemas.statistics import LeagueStatistics
+from ..schemas.teams import Team
+from ..schemas.matches import Match
+from ..schemas.calendar import Calendar
+from ..models.leagues import LeagueCreate, LeagueUpdate, LeagueTeamCreate, TipoLiga
 from ..services.simulation import TournamentSimulator
 
 def get_league(db: Session, league_id: int):

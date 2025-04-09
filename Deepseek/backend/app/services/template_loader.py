@@ -3,7 +3,7 @@ import os
 from typing import Dict, List, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 
-from ..models.leagues import LeagueCreate
+from ..models.leagues import LeagueCreate, LeagueTeamCreate
 from ..models.teams import TeamCreate
 from ..schemas.leagues import League
 from ..schemas.teams import Team
@@ -188,10 +188,11 @@ class LeagueTemplateLoader:
         
         # Asociar equipos a la liga
         for team in created_teams:
-            leagues_crud.add_team_to_league(db, {
-                "league_id": created_league.id,
-                "team_id": team.id
-            })
+            league_team = LeagueTeamCreate(
+                league_id=created_league.id,
+                team_id=team.id
+            )
+            leagues_crud.add_team_to_league(db, league_team)
         
         return created_league, created_teams
     

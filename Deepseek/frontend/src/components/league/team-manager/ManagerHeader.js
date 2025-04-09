@@ -1,0 +1,58 @@
+import React from 'react';
+import { 
+  CardHeader, 
+  Avatar, 
+  Typography, 
+  IconButton, 
+  useTheme 
+} from '@mui/material';
+import { 
+  Group as GroupIcon, 
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon 
+} from '@mui/icons-material';
+
+/**
+ * Encabezado para el componente de gestión de managers
+ * 
+ * @param {Object} props - Props del componente
+ * @param {boolean} props.expanded - Estado de expansión del panel de información
+ * @param {Function} props.onToggleExpand - Función para toggle de expansión
+ * @returns {JSX.Element} Encabezado del componente
+ */
+const ManagerHeader = ({ expanded, onToggleExpand }) => {
+  const theme = useTheme();
+  
+  return (
+    <CardHeader
+      avatar={
+        <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+          <GroupIcon />
+        </Avatar>
+      }
+      title={
+        <Typography variant="h6" component="div" fontWeight="bold">
+          Gestión de Managers
+        </Typography>
+      }
+      action={
+        <IconButton
+          onClick={onToggleExpand}
+          aria-expanded={expanded}
+          aria-label="mostrar/ocultar"
+        >
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      }
+      sx={{ 
+        pb: 1, 
+        '& .MuiCardHeader-action': { 
+          margin: 0,
+          alignSelf: 'center'
+        } 
+      }}
+    />
+  );
+};
+
+export default ManagerHeader;

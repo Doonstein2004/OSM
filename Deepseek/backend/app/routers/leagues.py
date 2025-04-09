@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from ..database import get_db
-from ..schemas.leagues import LeagueCreate, LeagueUpdate, LeagueWithDetails, League, SimulationRequest
-from ..models.teams import Team
+from ..models.leagues import LeagueCreate, LeagueUpdate, LeagueWithDetails, League, SimulationRequest, LeagueTeamCreate
+from ..schemas.teams import Team
+from ..models.teams import Team as TeamModel  # Renombra para evitar conflictos
 from ..schemas.leagues import TipoLiga
 from ..crud import leagues as leagues_crud
 from ..crud import matches as matches_crud
@@ -83,18 +84,23 @@ def add_team_to_league(league_id: int, team_id: int, db: Session = Depends(get_d
     """
     Añade un equipo a una liga
     """
-    league_team = {
-        "league_id": league_id,
-        "team_id": team_id,
-        "registration_date": datetime.now()
-    }
+    
+    # Create a LeagueTeamCreate object instead of a dictionary
+    
+    
+    league_team = LeagueTeamCreate(
+        league_id=league_id,
+        team_id=team_id,
+        registration_date=datetime.now()
+    )
     
     db_league_team = leagues_crud.add_team_to_league(db, league_team)
     if not db_league_team:
         raise HTTPException(status_code=400, detail="League is full or team/league not found")
     return db_league_team
 
-@router.get("/{league_id}/teams", response_model=List[Team])
+
+@router.get("/{league_id}/teams", response_model=List[TeamModel])
 def get_teams_in_league(league_id: int, db: Session = Depends(get_db)):
     """
     Obtiene todos los equipos de una liga

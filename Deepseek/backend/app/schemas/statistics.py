@@ -1,3 +1,5 @@
+# app/schemas/statistics.py
+
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -19,5 +21,5 @@ class LeagueStatistics(Base):
     
     # Relationships
     league = relationship("League", back_populates="statistics")
-    team_with_most_goals = relationship("Team", foreign_keys=[team_with_most_goals_id])
-    team_with_best_defense = relationship("Team", foreign_keys=[team_with_best_defense_id])
+    team_with_most_goals = relationship("Team", foreign_keys=[team_with_most_goals_id], back_populates="most_goals_leagues")
+    team_with_best_defense = relationship("Team", foreign_keys=[team_with_best_defense_id], back_populates="best_defense_leagues")
