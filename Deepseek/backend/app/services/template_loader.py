@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from ..models.leagues import LeagueCreate
 from ..models.teams import TeamCreate
-from ..schemas.leagues import League, Team
+from ..schemas.leagues import League
+from ..schemas.teams import Team
 from ..crud import leagues as leagues_crud
 from ..crud import teams as teams_crud
 

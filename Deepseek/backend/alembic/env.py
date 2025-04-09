@@ -20,7 +20,7 @@ config = context.config
 fileConfig(config.config_file_name)
 
 # Importa tus modelos SQLAlchemy
-from app.schemas import Base
+from app.database import Base
 target_metadata = Base.metadata
 
 def run_migrations_offline():

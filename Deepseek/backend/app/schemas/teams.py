@@ -24,8 +24,8 @@ class Team(Base):
     third_place_of_leagues = relationship("League", back_populates="third_place", foreign_keys="[League.third_place_id]")
     
     # Valor relationships in leagues
-    highest_value_in_leagues = relationship("League", foreign_keys="[League.highest_value_team_id]")
-    lowest_value_in_leagues = relationship("League", foreign_keys="[League.lowest_value_team_id]")
+    highest_value_in_leagues = relationship("League", foreign_keys="[League.highest_value_team_id]", back_populates="highest_value_team")
+    lowest_value_in_leagues = relationship("League", foreign_keys="[League.lowest_value_team_id]", back_populates="lowest_value_team")
     
     # Statistics relationships
     most_goals_leagues = relationship("LeagueStatistics", foreign_keys="[LeagueStatistics.team_with_most_goals_id]")

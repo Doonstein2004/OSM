@@ -3,12 +3,13 @@ from sqlalchemy import func, desc
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
-from ..schemas.leagues import League, LeagueTeam, TipoLiga
-from ..schemas.teams import Team
-from ..schemas.matches import Match
-from ..schemas.statistics import LeagueStatistics
-from ..schemas.calendar import Calendar
-from ..models.leagues import LeagueCreate, LeagueUpdate, LeagueTeamCreate
+# Importaciones correctas
+from ..models.leagues import League, LeagueTeam
+from ..models.teams import Team
+from ..models.matches import Match
+from ..models.statistics import LeagueStatistics
+from ..models.calendar import Calendar
+from ..schemas.leagues import LeagueCreate, LeagueUpdate, LeagueTeamCreate, TipoLiga
 from ..services.simulation import TournamentSimulator
 
 def get_league(db: Session, league_id: int):
@@ -373,16 +374,59 @@ def get_league_with_details(db: Session, league_id: int):
     for lt in league_teams:
         team = db.query(Team).filter(Team.id == lt.team_id).first()
         if team:
-            teams.append(team)
+            # Convertir equipo a diccionario
+            teams.append({
+                "id": team.id,
+                "name": team.name,
+                "manager": team.manager,
+                "manager_id": team.manager_id,
+                "clan": team.clan,
+                "value": team.value
+            })
     
     # Obtener ganadores (podio)
     winner = db.query(Team).filter(Team.id == league.winner_id).first() if league.winner_id else None
     runner_up = db.query(Team).filter(Team.id == league.runner_up_id).first() if league.runner_up_id else None
     third_place = db.query(Team).filter(Team.id == league.third_place_id).first() if league.third_place_id else None
     
+    # Convertir a diccionarios
+    winner_dict = {
+        "id": winner.id,
+        "name": winner.name,
+        "manager": winner.manager,
+        "manager_id": winner.manager_id
+    } if winner else None
+    
+    runner_up_dict = {
+        "id": runner_up.id,
+        "name": runner_up.name,
+        "manager": runner_up.manager,
+        "manager_id": runner_up.manager_id
+    } if runner_up else None
+    
+    third_place_dict = {
+        "id": third_place.id,
+        "name": third_place.name,
+        "manager": third_place.manager,
+        "manager_id": third_place.manager_id
+    } if third_place else None
+    
     # Obtener equipos de mayor/menor valor
     highest_value_team = db.query(Team).filter(Team.id == league.highest_value_team_id).first() if league.highest_value_team_id else None
     lowest_value_team = db.query(Team).filter(Team.id == league.lowest_value_team_id).first() if league.lowest_value_team_id else None
+    
+    # Convertir a diccionarios
+    highest_value_team_dict = {
+        "id": highest_value_team.id,
+        "name": highest_value_team.name,
+        "value": highest_value_team.value
+    } if highest_value_team else None
+    
+    lowest_value_team_dict = {
+        "id": lowest_value_team.id,
+        "name": lowest_value_team.name,
+        "value": lowest_value_team.value
+    } if lowest_value_team else None
     
     # Crear respuesta
     result = {
@@ -403,11 +447,11 @@ def get_league_with_details(db: Session, league_id: int):
         "teams_count": league.teams_count,
         "calendar_generated": league.calendar_generated,
         "teams": teams,
-        "winner": winner,
-        "runner_up": runner_up,
-        "third_place": third_place,
-        "highest_value_team": highest_value_team,
-        "lowest_value_team": lowest_value_team,
+        "winner": winner_dict,
+        "runner_up": runner_up_dict,
+        "third_place": third_place_dict,
+        "highest_value_team": highest_value_team_dict,
+        "lowest_value_team": lowest_value_team_dict,
         "avg_team_value": league.avg_team_value,
         "value_difference": league.value_difference,
         "creator": {

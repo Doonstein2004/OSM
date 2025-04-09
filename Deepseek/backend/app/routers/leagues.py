@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from ..database import get_db
-from ..models.leagues import LeagueCreate, LeagueUpdate, LeagueWithDetails, League, SimulationRequest
+from ..schemas.leagues import LeagueCreate, LeagueUpdate, LeagueWithDetails, League, SimulationRequest
 from ..models.teams import Team
 from ..schemas.leagues import TipoLiga
 from ..crud import leagues as leagues_crud

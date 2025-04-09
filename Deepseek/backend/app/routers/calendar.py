@@ -13,6 +13,7 @@ from ..models.calendar import (
 )
 from ..crud import calendar as calendar_crud
 from ..crud import leagues as leagues_crud
+from ..schemas.matches import Match
 
 router = APIRouter(
     prefix="/calendar",
