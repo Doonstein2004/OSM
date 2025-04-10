@@ -61,29 +61,7 @@ const HeroSection = ({ theme }) => {
           Simula torneos completos, analiza estadísticas y descubre quién será el campeón en esta plataforma interactiva
         </Typography>
         
-        <Button 
-          variant="contained" 
-          size="large" 
-          component={RouterLink}
-          to="/teams"
-          startIcon={<PlayIcon />}
-          sx={{ 
-            px: 4, 
-            py: 1.5,
-            background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.light} 90%)`,
-            boxShadow: '0 8px 16px rgba(33, 150, 243, 0.3)',
-            borderRadius: 3,
-            fontSize: '1.1rem',
-            fontWeight: 700,
-            '&:hover': {
-              background: `linear-gradient(45deg, ${theme.palette.primary.dark} 30%, ${theme.palette.primary.main} 90%)`,
-              transform: 'translateY(-3px)',
-              boxShadow: '0 12px 20px rgba(33, 150, 243, 0.4)',
-            }
-          }}
-        >
-          COMENZAR SIMULACIÓN
-        </Button>
+        
       </Box>
     </Paper>
   );

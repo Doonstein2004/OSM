@@ -1,3 +1,5 @@
+// frontend/src/components/league/list/index.js
+
 import React, { useState, useEffect } from 'react';
 import { Paper, List, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -18,7 +20,7 @@ import { fetchLeagues, fetchLeagueFullDetails } from '../../../utils/api/leagueS
  * 
  * @returns {JSX.Element} Lista de ligas
  */
-const LeagueList = () => {
+const LeagueList = ({onCreateLeague }) => {
   // Estados
   const [leagues, setLeagues] = useState([]);
   const [expandedLeague, setExpandedLeague] = useState(null);
@@ -85,9 +87,6 @@ const LeagueList = () => {
   };
 
   // Funciones de navegación
-  const handleCreateLeague = () => {
-    navigate('/leagues/create');
-  };
 
   const handleViewMatches = (leagueId) => {
     navigate(`/leagues/${leagueId}`);
@@ -111,13 +110,13 @@ const LeagueList = () => {
   }
 
   if (leagues.length === 0) {
-    return <EmptyState onCreateLeague={handleCreateLeague} />;
+    return <EmptyState onCreateLeague={onCreateLeague} />;
   }
 
   // Renderizado principal
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-      <LeagueListHeader onCreateLeague={handleCreateLeague} />
+      <LeagueListHeader onCreateLeague={onCreateLeague} />
 
       <List sx={{ width: '100%' }}>
         {leagues.map((league) => (

@@ -1,11 +1,11 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
 import { 
   SportsSoccer as SoccerIcon,
   Leaderboard as LeaderboardIcon,
   EmojiEvents as TrophyIcon,
   Dashboard as DashboardIcon,
-  Groups as TeamsIcon
 } from '@mui/icons-material';
 import NavItem from './NavItem';
 
@@ -28,12 +28,11 @@ const isRouteActive = (path, currentPath) => {
 const NavItems = ({ isMobile, currentPath }) => {
   // Definición de los ítems de navegación
   const navItems = [
-    { to: "/", label: "Inicio", icon: <TrophyIcon /> },
+    { to: "/", label: "Inicio", icon: <HomeIcon /> },
     { to: "/leagues", label: "Ligas", icon: <TrophyIcon /> },
     { to: "/standings", label: "Tabla", icon: <LeaderboardIcon /> },
     { to: "/matches", label: "Partidos", icon: <SoccerIcon /> },
     { to: "/analytics", label: "Estadísticas", icon: <DashboardIcon /> },
-    { to: "/teams", label: "Equipos", icon: <TeamsIcon /> }
   ];
 
   return (

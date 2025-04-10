@@ -1,5 +1,7 @@
 import React from 'react';
 import { Grid, Typography } from '@mui/material';
+import TocIcon from '@mui/icons-material/Toc';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { 
   Leaderboard as LeaderboardIcon, 
   SportsSoccer as SoccerIcon,
@@ -35,12 +37,20 @@ const FeatureCards = ({ theme }) => {
       iconBgColor: 'rgba(76, 175, 80, 0.1)'
     },
     {
-      icon: TeamsIcon,
-      title: 'Gestión de Equipos',
-      description: 'Configura y personaliza los equipos que participarán en el torneo.',
-      link: '/teams',
+      icon: TocIcon,
+      title: 'Ligas',
+      description: 'Crea, edita y administra las ligas disponibles dentro del simulador.',
+      link: '/leagues',
       iconColor: theme.palette.error.main,
-      iconBgColor: 'rgba(244, 67, 54, 0.1)'
+      iconBgColor: 'rgba(3, 169, 244, 0.1)'
+    },
+    {
+      icon: GroupsIcon,
+      title: 'Clanes',
+      description: 'Administra tus clanes, gestiona los torneos, batallas y mucho más.',
+      link: '/clans',
+      iconColor: theme.palette.primary.main,
+      iconBgColor: 'rgba(255, 152, 0, 0.1)'
     }
   ];
 

@@ -7,7 +7,6 @@ import {
 import { 
   Add as AddIcon,
   FormatListBulleted as ListIcon,
-  Dashboard as DashboardIcon
 } from '@mui/icons-material';
 
 const TabsNavigation = ({ activeTab, handleTabChange, theme, isSmallScreen }) => {
@@ -33,17 +32,10 @@ const TabsNavigation = ({ activeTab, handleTabChange, theme, isSmallScreen }) =>
           iconPosition="start"
         />
         <Tab 
-          label="Crear Liga Manual" 
+          label="Crear Liga" 
           id="leagues-tab-1"
           aria-controls="leagues-tabpanel-1"
           icon={<AddIcon />}
-          iconPosition="start"
-        />
-        <Tab 
-          label="Ligas Predefinidas" 
-          id="leagues-tab-2"
-          aria-controls="leagues-tabpanel-2"
-          icon={<DashboardIcon />}
           iconPosition="start"
         />
       </Tabs>

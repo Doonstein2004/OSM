@@ -173,8 +173,8 @@ class TournamentSimulator:
     def generate_fixture(
         self, 
         teams: List[str], 
-        jornadas: int = 42, 
-        matches_per_jornada: int = 10,
+        jornadas: Optional[int] = None,
+        matches_per_jornada: Optional[int] = None,
         simulate_results: bool = False,
         team_strengths: Optional[Dict[str, float]] = None
     ) -> List[Dict]:
@@ -183,8 +183,8 @@ class TournamentSimulator:
         
         Args:
             teams: Lista de nombres de equipos
-            jornadas: Número máximo de jornadas
-            matches_per_jornada: Número máximo de partidos por jornada
+            jornadas: Número de jornadas (opcional, se calcula automáticamente si es None)
+            matches_per_jornada: Número de partidos por jornada (opcional, se calcula como equipos/2)
             simulate_results: Si se deben simular resultados o solo datos pre-partido
             team_strengths: Diccionario de fortalezas de equipos (opcional)
         
@@ -193,44 +193,86 @@ class TournamentSimulator:
         """
         if len(teams) < 2:
             raise ValueError("Se necesitan al menos 2 equipos para generar un fixture")
-            
-        all_matches = []
-        team_pairs = []
         
-        # Generar todos los emparejamientos posibles (ida y vuelta)
-        for i in range(len(teams)):
-            for j in range(i+1, len(teams)):
-                team_pairs.append((teams[i], teams[j]))  # Partido de ida
-                team_pairs.append((teams[j], teams[i]))  # Partido de vuelta
+        # Calcular automáticamente los valores si no se proporcionan
+        n_teams = len(teams)
+        required_jornadas = 2 * (n_teams - 1)  # Ida y vuelta
+        matches_per_round = n_teams // 2
         
-        # Mezclar aleatoriamente
-        random.shuffle(team_pairs)
+        if jornadas is None:
+            jornadas = required_jornadas
+        else:
+            jornadas = min(jornadas, required_jornadas)
         
-        # Asignar los partidos a jornadas
-        for jornada in range(1, jornadas + 1):
-            jornada_matches = []
-            matches_to_assign = min(matches_per_jornada, len(team_pairs))
-            
-            for _ in range(matches_to_assign):
-                if not team_pairs:
-                    break
-                    
-                home, away = team_pairs.pop()
+        if matches_per_jornada is None:
+            matches_per_jornada = matches_per_round
+        
+        # Crear un número par de equipos añadiendo uno ficticio si es necesario
+        has_dummy = False
+        teams_copy = teams.copy()
+        if len(teams_copy) % 2 == 1:
+            teams_copy.append("Dummy")  # Equipo ficticio para hacer par
+            has_dummy = True
+        
+        n = len(teams_copy)
+        fixtures = []
+        
+        # Implementación del algoritmo de rotación circular
+        # Un equipo fijo y los demás rotan
+        for round_num in range(n - 1):
+            round_fixtures = []
+            for i in range(n // 2):
+                team1 = teams_copy[i]
+                team2 = teams_copy[n - 1 - i]
                 
-                if simulate_results:
-                    match_data = self.match_simulator.simulate_match(home, away, team_strengths)
+                # Saltar partidos con el equipo ficticio
+                if has_dummy and (team1 == "Dummy" or team2 == "Dummy"):
+                    continue
+                
+                # En rounds alternos, intercambiar local y visitante
+                if round_num % 2 == 0:
+                    round_fixtures.append((team1, team2, round_num + 1))
                 else:
-                    match_data = self.match_simulator.generate_pre_match_data(home, away)
-                
-                match_data.update({
-                    "jornada": jornada,
-                    "home_team": home,
-                    "away_team": away
-                })
-                
-                jornada_matches.append(match_data)
+                    round_fixtures.append((team2, team1, round_num + 1))
             
-            all_matches.extend(jornada_matches)
+            fixtures.extend(round_fixtures)
+            
+            # Rotar equipos para la siguiente jornada: el primero se queda fijo, el resto rota
+            teams_copy = [teams_copy[0]] + [teams_copy[-1]] + teams_copy[1:-1]
+        
+        # Crear partidos de vuelta (invertir local/visitante)
+        first_leg_count = len(fixtures)
+        for i in range(first_leg_count):
+            home, away, round_num = fixtures[i]
+            # La vuelta va después de todas las jornadas de ida
+            fixtures.append((away, home, round_num + (n - 1)))
+        
+        # Limitar al número de jornadas solicitado
+        fixtures = [f for f in fixtures if f[2] <= jornadas]
+        
+        # Convertir fixtures a objetos de partido
+        all_matches = []
+        for home, away, jornada_num in fixtures:
+            if simulate_results:
+                match_data = self.match_simulator.simulate_match(home, away, team_strengths)
+            else:
+                match_data = self.match_simulator.generate_pre_match_data(home, away)
+            
+            match_data.update({
+                "jornada": jornada_num,
+                "home_team": home,
+                "away_team": away
+            })
+            
+            all_matches.append(match_data)
+        
+        # Verificación de integridad de datos
+        expected_matches = n_teams * (n_teams - 1)
+        if jornadas < required_jornadas:
+            expected_matches = (jornadas * n_teams) // 2
+        
+        if len(all_matches) != expected_matches:
+            print(f"Advertencia: Se generaron {len(all_matches)} partidos, esperados {expected_matches}")
         
         return all_matches
     
@@ -255,7 +297,7 @@ class TournamentSimulator:
     def simulate_league(
         self, 
         teams: List[str], 
-        jornadas: int = 38, 
+        jornadas: Optional[int] = None, 
         balance_teams: bool = True
     ) -> Tuple[List[Dict], Dict[str, Dict]]:
         """
@@ -263,7 +305,7 @@ class TournamentSimulator:
         
         Args:
             teams: Lista de nombres de equipos
-            jornadas: Número de jornadas
+            jornadas: Número de jornadas (opcional, se calcula automáticamente si es None)
             balance_teams: Si se deben balancear automáticamente las fortalezas de los equipos
         
         Returns:
@@ -272,11 +314,14 @@ class TournamentSimulator:
         # Generar fortalezas de equipos
         team_strengths = self.auto_balance_teams(teams) if balance_teams else None
         
+        # Calcular número de partidos por jornada
+        matches_per_jornada = len(teams) // 2
+        
         # Generar fixtures con resultados
         matches = self.generate_fixture(
             teams=teams,
             jornadas=jornadas,
-            matches_per_jornada=len(teams) // 2,
+            matches_per_jornada=matches_per_jornada,
             simulate_results=True,
             team_strengths=team_strengths
         )

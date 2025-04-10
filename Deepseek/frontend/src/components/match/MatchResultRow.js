@@ -18,9 +18,11 @@ const MatchResultRow = ({ match, onEdit }) => {
         <Typography variant="body1" fontWeight="bold">
           {match.home_team.name}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {match.home_formation}
-        </Typography>
+        {match.home_team.manager && (
+          <Typography variant="body2" color="text.secondary">
+            ({match.home_team.manager})
+          </Typography>
+        )}
       </TableCell>
       
       {/* Resultado */}
@@ -35,20 +37,47 @@ const MatchResultRow = ({ match, onEdit }) => {
         <Typography variant="body1" fontWeight="bold">
           {match.away_team.name}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {match.away_formation}
-        </Typography>
+        {match.away_team.manager && (
+          <Typography variant="body2" color="text.secondary">
+            ({match.away_team.manager})
+          </Typography>
+        )}
       </TableCell>
       
       {/* Alineación y Estilo */}
       <TableCell>
         <Box>
-          <Typography variant="body2">
-            {match.home_style}
+        <Typography variant="body2">
+          {match.home_formation}
+        </Typography>
+          <Typography variant="body2" color="text.secondary">
+            ({match.home_style})
           </Typography>
           <Divider sx={{ my: 1 }} />
           <Typography variant="body2">
-            {match.away_style}
+          {match.away_formation}
+        </Typography>
+          <Typography variant="body2" color="text.secondary">
+            ({match.away_style})
+          </Typography>
+        </Box>
+      </TableCell>
+
+      {/* Avanzadas y Patadas */}
+      <TableCell>
+        <Box>
+        <Typography variant="body2">
+          {match.home_attack}
+        </Typography>
+          <Typography variant="body2" color="text.secondary">
+            ({match.home_kicks})
+          </Typography>
+          <Divider sx={{ my: 1 }} />
+          <Typography variant="body2">
+          {match.away_attack}
+        </Typography>
+          <Typography variant="body2" color="text.secondary">
+            ({match.away_kicks})
           </Typography>
         </Box>
       </TableCell>

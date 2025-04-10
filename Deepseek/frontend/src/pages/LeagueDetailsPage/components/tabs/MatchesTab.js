@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Card, Divider, Grid, useTheme } from '@mui/material';
-import { SportsSoccer as SoccerIcon } from '@mui/icons-material';
+import { SportsSoccer as SoccerIcon, Person as PersonIcon } from '@mui/icons-material';
 
 const MatchesTab = ({ matches }) => {
   const theme = useTheme();
@@ -73,6 +73,12 @@ const MatchesTab = ({ matches }) => {
                         <Typography variant="body1" fontWeight={600}>
                           {match.home_team.name}
                         </Typography>
+                        {match.home_team.manager && (
+                          <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <PersonIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
+                            {match.home_team.manager}
+                          </Typography>
+                        )}
                         <Typography variant="caption" color="text.secondary">
                           {match.home_formation} • {match.home_style}
                         </Typography>
@@ -107,6 +113,12 @@ const MatchesTab = ({ matches }) => {
                         <Typography variant="body1" fontWeight={600}>
                           {match.away_team.name}
                         </Typography>
+                        {match.away_team.manager && (
+                          <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                            <PersonIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
+                            {match.away_team.manager}
+                          </Typography>
+                        )}
                         <Typography variant="caption" color="text.secondary">
                           {match.away_formation} • {match.away_style}
                         </Typography>

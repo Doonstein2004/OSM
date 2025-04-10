@@ -1,3 +1,5 @@
+# backend/app/routers/calendar.py
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -9,7 +11,8 @@ from ..models.calendar import (
     CalendarEntryUpdate, 
     CalendarEntry,
     CalendarEntryWithDetails,
-    GenerateCalendarRequest
+    GenerateCalendarRequest,
+    ImportExternalCalendarRequest
 )
 from ..crud import calendar as calendar_crud
 from ..crud import leagues as leagues_crud
@@ -158,6 +161,44 @@ def generate_league_calendar(
     return {
         "detail": f"Calendario generado con {len(calendar_entries)} entradas",
         "calendar_entries_count": len(calendar_entries)
+    }
+
+@router.post("/leagues/{league_id}/import")
+def import_external_calendar(
+    league_id: int,
+    request: ImportExternalCalendarRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Importa un calendario desde una fuente externa mediante web scraping
+    
+    Args:
+        league_id: ID de la liga
+        request: Datos de solicitud con la URL externa
+        
+    Returns:
+        Dict con información sobre la importación
+    """
+    # Verificar que la liga existe
+    league = leagues_crud.get_league(db, league_id)
+    if not league:
+        raise HTTPException(status_code=404, detail="Liga no encontrada")
+    
+    # Verificar que la URL es válida
+    if not request.external_url:
+        raise HTTPException(status_code=400, detail="URL externa no proporcionada")
+    
+    # Importar calendario
+    result = calendar_crud.import_calendar_from_external_source(db, league_id, request.external_url)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return {
+        "detail": f"Calendario importado correctamente: {result['calendar_entries_created']} entradas creadas",
+        "matches_created": result["matches_created"],
+        "calendar_entries_created": result["calendar_entries_created"],
+        "errors": result["errors"] if len(result["errors"]) > 0 else None
     }
 
 @router.post("/leagues/{league_id}/sync")

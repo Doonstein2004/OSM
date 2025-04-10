@@ -1,3 +1,5 @@
+// frontend/src/pages/LeaguesPage/index.js
+
 import React, { useState } from 'react';
 import { 
   Container, 
@@ -5,9 +7,8 @@ import {
   useTheme,
   useMediaQuery
 } from '@mui/material';
-import LeagueInput from '../../components/league/input/index';
-import LeagueList from '../../components/league/list/index';
 import LeagueTemplateSelector from '../../components/league/template-selector/index';
+import LeagueList from '../../components/league/list/index';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 // Componentes
@@ -51,15 +52,18 @@ const LeaguesPage = () => {
         theme={theme} 
         isSmallScreen={isSmallScreen} 
       />
-      
+
       <Box
         role="tabpanel"
         hidden={activeTab !== 0}
         id="leagues-tabpanel-0"
         aria-labelledby="leagues-tab-0"
       >
-        {activeTab === 0 && <LeagueList />}
+        {activeTab === 0 && (
+          <LeagueList onCreateLeague={() => handleTabChange(null, 1)} />
+        )}
       </Box>
+  
       
       <Box
         role="tabpanel"
@@ -67,16 +71,7 @@ const LeaguesPage = () => {
         id="leagues-tabpanel-1"
         aria-labelledby="leagues-tab-1"
       >
-        {activeTab === 1 && <LeagueInput onCreateLeague={handleCreateLeague} />}
-      </Box>
-      
-      <Box
-        role="tabpanel"
-        hidden={activeTab !== 2}
-        id="leagues-tabpanel-2"
-        aria-labelledby="leagues-tab-2"
-      >
-        {activeTab === 2 && <LeagueTemplateSelector onLeagueCreate={handleCreateLeague} />}
+        {activeTab === 1 && <LeagueTemplateSelector onLeagueCreate={handleCreateLeague} />}
       </Box>
     </Container>
   );

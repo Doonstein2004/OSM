@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+# backend/app/models/calendar.py
+
+from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 
@@ -46,7 +48,6 @@ class LeagueCalendarResponse(BaseModel):
         from_attributes = True
 
 class GenerateCalendarRequest(BaseModel):
-    league_id: int
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     auto_schedule: bool = False
@@ -55,10 +56,19 @@ class GenerateCalendarRequest(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "league_id": 1,
                 "start_date": "2023-09-01",
                 "end_date": "2023-12-31",
                 "auto_schedule": True,
                 "match_days": [5, 6]  # Sábado y domingo
+            }
+        }
+
+class ImportExternalCalendarRequest(BaseModel):
+    external_url: str
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "external_url": "https://www.flashscore.com/football/spain/laliga/fixtures/"
             }
         }

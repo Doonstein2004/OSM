@@ -1,188 +1,249 @@
 import React, { useState, useEffect } from 'react';
-import { Paper } from '@mui/material';
-
-// Componentes
-import SimulationHeader from './SimulationHeader';
-import TeamSelector from './TeamSelector';
-import SelectedTeams from './SelectedTeams';
-import SimulationButton from './SimulationButton';
-import LoadingState from './LoadingState';
-import StatusMessages from './StatusMessages';
-
-// Utilidades
 import { 
-  loadSimulationData, 
-  addTeamToLeague, 
-  removeTeamFromLeague, 
-  simulateLeague 
-} from '../../../utils/api/simulationService';
+  Box, 
+  Typography, 
+  Button, 
+  Paper, 
+  Alert, 
+  CircularProgress,
+  Divider,
+  Stepper,
+  Step,
+  StepLabel,
+  Card,
+  CardContent,
+  Grid,
+  Tabs,
+  Tab
+} from '@mui/material';
 import { 
-  validateTeamAddition, 
-  validateSimulation 
-} from '../../../utils/validators/simulationValidators';
+  PlayArrow as PlayIcon, 
+  AutoAwesome as SimulateIcon,
+  CalendarMonth as CalendarIcon
+} from '@mui/icons-material';
+import axios from 'axios';
+import { loadSimulationData, simulateLeague } from '../../../utils/api/simulationService';
+import CalendarImport from '../calendar/CalendarImport';
 
 /**
- * Componente principal para la simulación de una liga
+ * Componente para simular una liga completa
  * 
  * @param {Object} props - Props del componente
  * @param {string|number} props.leagueId - ID de la liga
- * @param {Function} props.onSimulationComplete - Callback tras completar simulación
- * @returns {JSX.Element} Componente de simulación de liga
+ * @param {Function} props.onSimulationComplete - Función a ejecutar después de la simulación
+ * @returns {JSX.Element}
  */
 const LeagueSimulation = ({ leagueId, onSimulationComplete }) => {
-  // Estados
-  const [availableTeams, setAvailableTeams] = useState([]);
-  const [selectedTeams, setSelectedTeams] = useState([]);
-  const [selectedTeam, setSelectedTeam] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [league, setLeague] = useState(null);
+  const [simulationStatus, setSimulationStatus] = useState('pending'); // pending, running, completed
+  const [activeStep, setActiveStep] = useState(0);
+  
+  const steps = [
+    'Verificar equipos',
+    'Crear calendario',
+    'Simular partidos',
+    'Actualizar clasificación'
+  ];
 
-  // Cargar datos iniciales
+  // Carga inicial de datos
   useEffect(() => {
     const fetchData = async () => {
-      if (!leagueId) return;
-      
       try {
-        setIsLoading(true);
+        setLoading(true);
         setError('');
-        
-        // Cargar todos los datos necesarios
-        const data = await loadSimulationData(leagueId);
-        
-        // Actualizar estados
-        setLeague(data.league);
-        setSelectedTeams(data.selectedTeams);
-        setAvailableTeams(data.availableTeams);
+        const result = await loadSimulationData(leagueId);
+        setData(result);
       } catch (err) {
-        setError(err.message);
+        setError('Error al cargar datos: ' + (err.message || 'Error desconocido'));
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     fetchData();
   }, [leagueId]);
 
-  // Manejadores de eventos
-  const handleTeamChange = (teamId) => {
-    setSelectedTeam(teamId);
-    setError('');
-  };
-
-  const handleAddTeam = async () => {
-    // Validar la adición del equipo
-    const validationError = validateTeamAddition(selectedTeam, selectedTeams, league);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
+  const handleSimulate = async () => {
     try {
-      // Encontrar el equipo seleccionado
-      const team = availableTeams.find(team => team.id === selectedTeam);
-      
-      // Añadir a la API
-      await addTeamToLeague(leagueId, team.id);
-      
-      // Actualizar estados locales
-      setSelectedTeams([...selectedTeams, team]);
-      setAvailableTeams(availableTeams.filter(t => t.id !== team.id));
-      setSelectedTeam('');
       setError('');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleRemoveTeam = async (teamToRemove) => {
-    try {
-      // Eliminar de la API
-      await removeTeamFromLeague(leagueId, teamToRemove.id);
+      setSimulationStatus('running');
+      setActiveStep(0);
       
-      // Actualizar estados locales
-      setSelectedTeams(selectedTeams.filter(team => team.id !== teamToRemove.id));
-      setAvailableTeams([...availableTeams, teamToRemove]);
-      setError('');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleSimulateTournament = async () => {
-    // Validar la simulación
-    const validationError = validateSimulation(selectedTeams);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    
-    try {
-      setIsSimulating(true);
-      setError('');
-      setSuccess('');
+      // Step 1: Verificar equipos (ya completado al cargar)
+      setActiveStep(1);
       
-      // Llamar a la API de simulación
-      await simulateLeague(
+      // Step 2: Crear calendario (simulación automática)
+      setActiveStep(2);
+      
+      // Step 3: Simular partidos
+      const result = await simulateLeague(
         leagueId, 
-        selectedTeams.map(team => team.id), 
-        league.jornadas
+        data.selectedTeams.map(team => team.id),
+        data.league.jornadas
       );
       
-      // Mostrar mensaje de éxito
-      setSuccess(`Liga simulada exitosamente. Se han generado ${league.jornadas} jornadas de partidos.`);
+      setActiveStep(3);
       
-      // Notificar al componente padre
-      if (onSimulationComplete) {
-        onSimulationComplete();
-      }
+      // Step 4: Actualizar clasificación
+      setTimeout(() => {
+        setActiveStep(4);
+        setSimulationStatus('completed');
+        
+        // Notificar al componente padre
+        if (onSimulationComplete) {
+          onSimulationComplete(result);
+        }
+      }, 1000);
+      
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsSimulating(false);
+      setError('Error al simular: ' + (err.message || 'Error desconocido'));
+      setSimulationStatus('pending');
     }
   };
 
-  // Si está cargando inicialmente, mostrar estado de carga
-  if (isLoading && !league) {
-    return <LoadingState />;
+  const handleImportComplete = () => {
+    // Recargar los datos después de importar el calendario
+    if (onSimulationComplete) {
+      onSimulationComplete();
+    }
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+        <CircularProgress size={40} sx={{ mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          Cargando datos para la simulación...
+        </Typography>
+      </Box>
+    );
   }
 
-  // Renderizado principal
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mt: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Alert severity="warning" sx={{ mt: 2 }}>
+        No se pudieron cargar los datos para la simulación.
+      </Alert>
+    );
+  }
+
+  if (data.selectedTeams.length < 2) {
+    return (
+      <Alert severity="warning" sx={{ mt: 2 }}>
+        Se necesitan al menos 2 equipos para simular la liga. 
+        Por favor, añade equipos a la liga en la sección de configuración.
+      </Alert>
+    );
+  }
+
   return (
-    <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-      <SimulationHeader leagueName={league?.name} />
-      
-      <StatusMessages 
-        successMessage={success}
-        errorMessage={error}
-      />
-      
-      <SelectedTeams 
-        teams={selectedTeams}
-        maxTeams={league?.max_teams}
-        onRemoveTeam={handleRemoveTeam}
-      />
-      
-      <TeamSelector 
-        availableTeams={availableTeams}
-        selectedTeam={selectedTeam}
-        isLoading={isLoading}
-        hasError={!!error && error.includes('equipo')}
-        maxTeams={league?.max_teams}
-        currentTeamCount={selectedTeams.length}
-        onTeamChange={handleTeamChange}
-        onAddTeam={handleAddTeam}
-      />
-      
-      <SimulationButton 
-        onSimulate={handleSimulateTournament}
-        isSimulating={isSimulating}
-        isDisabled={selectedTeams.length < 2}
-      />
-    </Paper>
+    <Box>
+      <Tabs 
+        value={activeTab} 
+        onChange={handleTabChange} 
+        aria-label="Opciones de simulación"
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+      >
+        <Tab 
+          label="Simulación Automática" 
+          icon={<SimulateIcon />} 
+          iconPosition="start"
+        />
+        <Tab 
+          label="Importar Calendario" 
+          icon={<CalendarIcon />} 
+          iconPosition="start"
+        />
+      </Tabs>
+
+      {activeTab === 0 && (
+        <>
+          <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Equipos participantes ({data.selectedTeams.length})
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Grid container spacing={1}>
+              {data.selectedTeams.map(team => (
+                <Grid item xs={12} sm={6} md={4} key={team.id}>
+                  <Card variant="outlined" sx={{ mb: 1 }}>
+                    <CardContent sx={{ py: 1, px: 2 }}>
+                      <Typography variant="body2">
+                        {team.name}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+
+          <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Proceso de simulación
+            </Typography>
+            <Divider sx={{ mb: 3 }} />
+
+            <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            
+            {simulationStatus === 'running' && (
+              <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 3 }}>
+                Simulación en curso...
+              </Alert>
+            )}
+            
+            {simulationStatus === 'completed' && (
+              <Alert severity="success" sx={{ mb: 3 }}>
+                ¡Simulación completada con éxito! Ahora puedes ver los resultados en las otras pestañas.
+              </Alert>
+            )}
+            
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                startIcon={<PlayIcon />} 
+                onClick={handleSimulate}
+                disabled={simulationStatus === 'running'}
+                size="large"
+                sx={{ minWidth: 200 }}
+              >
+                {simulationStatus === 'running' ? 'Simulando...' : 'Iniciar Simulación'}
+              </Button>
+            </Box>
+          </Paper>
+        </>
+      )}
+
+      {activeTab === 1 && (
+        <CalendarImport 
+          leagueId={leagueId}
+          onImport={handleImportComplete}
+        />
+      )}
+    </Box>
   );
 };
 

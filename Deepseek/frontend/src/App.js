@@ -8,7 +8,6 @@ import { Box } from '@mui/material';
 import darkTheme  from './styles/theme';
 import Navigation from './components/navigation/index';
 import HomePage from './pages/HomePage/index';
-import TeamsPage from './pages/TeamsPage/index';
 import MatchesPage from './pages/MatchesPage/index';
 import StandingsPage from './pages/StandingsPage/index';
 import AnalyticsPage from './pages/AnalyticsPage/index';
@@ -32,7 +31,6 @@ function App() {
           <Box component="main" sx={{ flexGrow: 1 }}>
             <Routes>
               <Route path="/" element={<HomePage />} />
-              <Route path="/teams" element={<TeamsPage />} />
               <Route path="/matches" element={<MatchesPage />} />
               <Route path="/standings" element={<StandingsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />

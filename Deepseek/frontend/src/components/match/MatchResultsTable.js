@@ -22,6 +22,7 @@ const MatchResultsTable = ({ matches, onEditMatch }) => {
             <TableCell align="center">Resultado</TableCell>
             <TableCell>Visitante</TableCell>
             <TableCell>Alineación/Estilo</TableCell>
+            <TableCell>Avanzadas/Patadas</TableCell>
             <TableCell>Posesión</TableCell>
             <TableCell>Tiros</TableCell>
             <TableCell>Acciones</TableCell>

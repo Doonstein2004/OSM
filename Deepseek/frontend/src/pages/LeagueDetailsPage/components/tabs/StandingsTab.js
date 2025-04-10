@@ -80,7 +80,40 @@ const StandingsTab = ({ standings }) => {
           }}>
             {index + 1}
           </Box>
-          <Typography fontWeight={500}>{team.team.name}</Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: team.team.manager?.trim() ? 'flex-start' : 'center',
+              height: '100%',
+              minHeight: '3rem', // Altura mínima para mantener consistencia
+            }}
+          >
+            <Typography
+              fontWeight={500}
+              sx={{
+                // Alineación horizontal siempre a la izquierda
+                textAlign: 'left',
+                // Asegura que el texto ocupe todo el ancho disponible
+                alignSelf: 'stretch',
+              }}
+            >
+              {team.team.name}
+            </Typography>
+
+            {/* Render condicional del manager */}
+            {team.team.manager?.trim() && (
+              <Box sx={{ height: '1.25rem' }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                >
+                  {team.team.manager}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          
           <Typography sx={{ textAlign: 'center' }}>{team.played}</Typography>
           <Typography sx={{ textAlign: 'center', color: 'success.main', fontWeight: team.won > 0 ? 'bold' : 'normal' }}>{team.won}</Typography>
           <Typography sx={{ textAlign: 'center' }}>{team.drawn}</Typography>

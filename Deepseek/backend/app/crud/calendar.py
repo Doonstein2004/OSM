@@ -1,3 +1,5 @@
+# backend/app/crud/calendar.py
+
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional, Dict, Any
@@ -8,7 +10,8 @@ from ..schemas.calendar import Calendar
 from ..schemas.matches import Match
 from ..schemas.leagues import League
 from ..models.calendar import CalendarEntryCreate, CalendarEntryUpdate
-from . import leagues, matches
+from ..utils.calendar_scraper import CalendarScraper
+from . import leagues, matches, teams
 
 def get_calendar_entry(db: Session, entry_id: int):
     """Obtiene una entrada del calendario por su ID"""
@@ -162,6 +165,137 @@ def generate_league_calendar(
     
     return calendar_entries
 
+def import_calendar_from_external_source(db: Session, league_id: int, external_url: str):
+    """
+    Importa un calendario desde una fuente externa mediante web scraping
+    
+    Args:
+        db: Sesión de base de datos
+        league_id: ID de la liga
+        external_url: URL del calendario externo
+        
+    Returns:
+        Dict con información sobre la importación
+    """
+    # Verificar que la liga existe
+    league = leagues.get_league(db, league_id)
+    if not league:
+        return {"success": False, "error": "Liga no encontrada"}
+    
+    # Obtener calendario desde la fuente externa
+    scraped_matches = CalendarScraper.fetch_calendar(external_url)
+    if not scraped_matches:
+        return {"success": False, "error": "No se pudo obtener el calendario desde la URL proporcionada"}
+    
+    # Obtener equipos de la liga
+    league_teams = db.query(League).filter(League.id == league_id).first().teams
+    
+    if not league_teams:
+        return {"success": False, "error": "La liga no tiene equipos asignados"}
+    
+    team_name_map = {team.name.lower(): team for team in league_teams}
+    
+    # Crear o actualizar partidos y calendario
+    created_matches = 0
+    created_calendar_entries = 0
+    errors = []
+    
+    for match_data in scraped_matches:
+        try:
+            home_team_name = match_data['home_team'].lower()
+            away_team_name = match_data['away_team'].lower()
+            
+            # Buscar equipos por nombre
+            home_team = None
+            away_team = None
+            
+            # Intentar encontrar el equipo exacto
+            if home_team_name in team_name_map:
+                home_team = team_name_map[home_team_name]
+            else:
+                # Buscar coincidencia parcial
+                for name, team in team_name_map.items():
+                    if home_team_name in name or name in home_team_name:
+                        home_team = team
+                        break
+            
+            if away_team_name in team_name_map:
+                away_team = team_name_map[away_team_name]
+            else:
+                # Buscar coincidencia parcial
+                for name, team in team_name_map.items():
+                    if away_team_name in name or name in away_team_name:
+                        away_team = team
+                        break
+            
+            if not home_team or not away_team:
+                errors.append(f"No se encontraron equipos: {match_data['home_team']} vs {match_data['away_team']}")
+                continue
+            
+            # Verificar si ya existe un partido entre estos equipos en esta jornada
+            existing_match = db.query(Match).filter(
+                Match.league_id == league_id,
+                Match.home_team_id == home_team.id,
+                Match.away_team_id == away_team.id,
+                Match.jornada == match_data['jornada']
+            ).first()
+            
+            # Si no existe, crearlo
+            if not existing_match:
+                # Crear nuevo partido
+                match_create = {
+                    "league_id": league_id,
+                    "home_team_id": home_team.id,
+                    "away_team_id": away_team.id,
+                    "jornada": match_data['jornada'],
+                    "date": datetime.strptime(match_data['date'], '%Y-%m-%d') if match_data['date'] else None,
+                    "time": match_data['time']
+                }
+                
+                # Usar el CRUD de matches para crear el partido
+                match = matches.create_match(db, match_create)
+                created_matches += 1
+            else:
+                match = existing_match
+                
+                # Actualizar fecha y hora si es necesario
+                if (match_data['date'] or match_data['time']) and not match.date:
+                    match.date = datetime.strptime(match_data['date'], '%Y-%m-%d') if match_data['date'] else None
+                    match.time = match_data['time']
+                    db.commit()
+            
+            # Verificar si ya existe una entrada de calendario para este partido
+            existing_entry = get_calendar_entry_by_match(db, match.id)
+            
+            if not existing_entry:
+                # Crear entrada de calendario
+                entry = CalendarEntryCreate(
+                    league_id=league_id,
+                    jornada=match_data['jornada'],
+                    match_id=match.id,
+                    scheduled_date=datetime.strptime(match_data['date'], '%Y-%m-%d').date() if match_data['date'] else None,
+                    scheduled_time=match_data['time'],
+                    venue=match_data['venue']
+                )
+                
+                create_calendar_entry(db, entry)
+                created_calendar_entries += 1
+        
+        except Exception as e:
+            errors.append(f"Error procesando partido: {str(e)}")
+    
+    # Actualizar estado de la liga
+    league.calendar_generated = True
+    league.external_calendar_url = external_url
+    db.commit()
+    
+    return {
+        "success": True,
+        "matches_created": created_matches,
+        "calendar_entries_created": created_calendar_entries,
+        "errors": errors
+    }
+
 def synchronize_calendar_with_matches(db: Session, league_id: int):
     """
     Sincroniza el estado 'is_played' del calendario con los partidos jugados
@@ -217,11 +351,13 @@ def get_calendar_with_match_details(db: Session, league_id: int, jornada: Option
                     "jornada": match.jornada,
                     "home_team": {
                         "id": match.home_team.id,
-                        "name": match.home_team.name
+                        "name": match.home_team.name,
+                        "manager": match.home_team.manager
                     },
                     "away_team": {
                         "id": match.away_team.id,
-                        "name": match.away_team.name
+                        "name": match.away_team.name,
+                        "manager": match.away_team.manager
                     },
                     "home_formation": match.home_formation,
                     "away_formation": match.away_formation,

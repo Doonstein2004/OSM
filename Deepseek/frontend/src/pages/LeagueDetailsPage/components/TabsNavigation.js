@@ -1,7 +1,7 @@
 import React from 'react';
 import { Paper, Tabs, Tab } from '@mui/material';
+import TodayIcon from '@mui/icons-material/Today';
 import { 
-  SportsSoccer as SoccerIcon,
   Leaderboard as StandingsIcon,
   Assessment as StatsIcon,
   Edit as EditIcon,
@@ -27,10 +27,10 @@ const TabsNavigation = ({ activeTab, handleTabChange, theme }) => {
         }}
       >
         <Tab 
-          label="Partidos" 
+          label="Calendario" 
           id="tab-0"
           aria-controls="tabpanel-0"
-          icon={<SoccerIcon />}
+          icon={<TodayIcon />}
           iconPosition="start"
         />
         <Tab 

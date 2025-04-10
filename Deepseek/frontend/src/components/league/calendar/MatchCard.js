@@ -9,7 +9,7 @@ import {
   CardContent,
   Divider
 } from '@mui/material';
-import { Edit as EditIcon, DeleteOutline as DeleteIcon } from '@mui/icons-material';
+import { Edit as EditIcon, DeleteOutline as DeleteIcon, Person as PersonIcon } from '@mui/icons-material';
 
 /**
  * Componente que muestra la información de un partido
@@ -66,6 +66,23 @@ const MatchCard = ({ match, onEdit, onDelete, showDivider = true }) => {
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {match.away_formation || 'Formación no definida'}
+              </Typography>
+            </Box>
+          </Grid>
+
+          {/* Agregando información del manager */}
+          <Grid item xs={12}>
+            <Box sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mt: 1,
+              mb: 1,
+              color: 'text.secondary'
+            }}>
+              <PersonIcon fontSize="small" sx={{ mr: 0.5 }} />
+              <Typography variant="caption">
+                Manager: {match.manager?.name || 'No asignado'}
               </Typography>
             </Box>
           </Grid>
