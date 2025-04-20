@@ -4,8 +4,9 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
 
 
 class OSMScraper:
@@ -13,7 +14,7 @@ class OSMScraper:
         self.username = username
         self.password = password
         self.chrome_options = Options()
-        self.chrome_options.add_argument("--headless")
+        #self.chrome_options.add_argument("--headless")
         self.driver = webdriver.Chrome(options=self.chrome_options)  # Asegúrate de tener ChromeDriver instalado
         self.wait = WebDriverWait(self.driver, 20)
         self.data = {}
@@ -61,46 +62,179 @@ class OSMScraper:
         print(f"Buscando el equipo: {nombre_equipo}...")
 
         try:
-            equipo_element = self.wait.until(EC.presence_of_all_elements_located(
-                (By.XPATH, f"//h2[contains(@class, 'clubslot-main-title') and contains(text(), '{nombre_equipo}')]")
-            ))
-
-            for elemento in equipo_element:
-                # Subir al contenedor clicable
-                contenedor_clickable = elemento.find_element(By.XPATH, "./ancestor::div[contains(@class, 'row-h-xs-24')]")
-                self.driver.execute_script("arguments[0].scrollIntoView();", contenedor_clickable)
-                time.sleep(1)  # Esperar un segundo para asegurar visibilidad
-                contenedor_clickable.click()
-                print(f"Equipo '{nombre_equipo}' seleccionado con éxito.")
-                return
-
-            print("No se encontró el equipo en el dashboard.")
-
-        except (TimeoutException, NoSuchElementException) as e:
-            print(f"Error al buscar o seleccionar el equipo: {e}")
+            # Esperar a que la página esté completamente cargada
+            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            self.driver.execute_script("return document.readyState === 'complete';")
             
+            # Esperar a que los elementos de equipo estén visibles
+            self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, "career-teamslot-container")))
+            
+            # Encontrar el elemento específico por el nombre del equipo
+            # Usando una búsqueda más precisa basada en la estructura HTML
+            equipo_xpath = f"//h2[contains(@class, 'clubslot-main-title') and normalize-space(text())='{nombre_equipo}']"
+            contenedor_xpath = f"//h2[contains(@class, 'clubslot-main-title') and normalize-space(text())='{nombre_equipo}']/ancestor::div[contains(@class, 'career-teamslot-container')]"
+            
+            # Verificar si el equipo existe
+            if not self.driver.find_elements(By.XPATH, equipo_xpath):
+                print(f"Equipo '{nombre_equipo}' no encontrado, intentando búsqueda parcial...")
+                # Búsqueda alternativa por contención parcial
+                equipo_xpath = f"//h2[contains(@class, 'clubslot-main-title') and contains(text(), '{nombre_equipo}')]"
+                contenedor_xpath = f"//h2[contains(@class, 'clubslot-main-title') and contains(text(), '{nombre_equipo}')]/ancestor::div[contains(@class, 'career-teamslot-container')]"
+            
+            # Esperar y localizar el elemento del equipo
+            titulo_equipo = self.wait.until(EC.presence_of_element_located((By.XPATH, equipo_xpath)))
+            print(f"Equipo encontrado: {titulo_equipo.text}")
+            
+            # Localizar el contenedor clickable
+            contenedor = self.wait.until(EC.element_to_be_clickable((By.XPATH, contenedor_xpath)))
+            
+            # Scroll al elemento con un pequeño margen
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", 
+                contenedor
+            )
+            time.sleep(1.5)  # Dar tiempo para que el scroll se complete
+            
+            # Guardar URL actual para verificar navegación
+            current_url = self.driver.current_url
+            
+            # Estrategia de clic mejorada
+            try:
+                print("Intentando clic con ActionChains...")
+                actions = ActionChains(self.driver)
+                actions.move_to_element(contenedor).pause(0.5).click().perform()
+            except ElementClickInterceptedException:
+                print("Clic interceptado, intentando con JavaScript...")
+                self.driver.execute_script("arguments[0].click();", contenedor)
+            except Exception as e:
+                print(f"Error en primer intento de clic: {str(e)}")
+                # Intentar clic directamente en el título del equipo
+                try:
+                    titulo_equipo.click()
+                except:
+                    print("Intentando clic final con JavaScript...")
+                    self.driver.execute_script("arguments[0].click();", titulo_equipo)
+            
+            # Esperar navegación con timeout más largo
+            try:
+                WebDriverWait(self.driver, 10).until(EC.url_changes(current_url))
+                print(f"Navegación exitosa a: {self.driver.current_url}")
+                return True
+            except TimeoutException:
+                print("La URL no cambió, verificando si hubo cambio en el DOM...")
+                # Verificar si hay elementos que indiquen que se cargó la página del equipo
+                try:
+                    self.wait.until(EC.presence_of_element_located(
+                        (By.XPATH, "//h1[contains(text(), 'Alineación')] | //div[contains(text(), 'Alineación')]")
+                    ))
+                    print("La página parece haber cargado correctamente a pesar de que la URL no cambió.")
+                    return True
+                except:
+                    print("No se pudo confirmar la navegación.")
+                    self.driver.save_screenshot("navegacion_fallida.png")
+                    return False
+
+        except Exception as e:
+            print(f"Error al seleccionar el equipo: {str(e)}")
+            self.driver.save_screenshot("error_seleccion_equipo.png")
+            return False
     
     def get_lineup(self):
-        print("Dirigiendose a Alineacion")
+        print("Dirigiéndose a Alineación")
+        self.driver.get("https://en.onlinesoccermanager.com/Lineup")
+
+        self.wait.until(lambda d: d.find_elements(By.CLASS_NAME, "lineup-player"))
+
+        # Titulares (los que están en la cancha)
+        titulares = self.driver.find_elements(By.CSS_SELECTOR, "div.position.droppable[style*='left']")
         
-        self.driver.get("https://onlinesoccermanager.com/Lineup")
-        
-        # Implementar la lógica para obtener realmente los 11 titulares
-        # Verificar el cansancio de los jugadores: {
-            # verde claro = otimo
-            # verde oscuro = bueno
-            # amarillo = regular (cambiar jugador)
-            # naranja = malo (cambiar jugador)
-            # rojo = extremo (cambiar jugador)
-        # }
-        
-        # Cambiar jugadores en la medida de lo posible por su posicion natural, sino haber jugadores de la misma posicion: {
-            # portero: (solo puede ser portero)
-            # defensa: (para los DD y DI: DC) (para los DC dependera de su posicion, si es a la derecha un DD si es izquierdo un DI)
-            # mediocampista: (para los CD/CI: CCA-CC-CCD) (para los CCA:CD/CI-CC-CCD) (para los CCD:CC-CCA-CD/CI)
-            # delantero
-        #}
-                    
+        # Suplentes (los que están en el banco)
+        suplentes = self.driver.find_elements(By.CSS_SELECTOR, "div.position.droppable:not([style*='left'])")
+
+        # Reservas (los que están más abajo del banco)
+        reservas = self.driver.find_elements(By.CSS_SELECTOR, "div.reserve-player")
+
+        titulares_data = []
+        suplentes_data = []
+        reservas_data = []
+
+        def extraer_datos(jugadores, tipo):
+            datos = []
+            for jugador in jugadores:
+                try:
+                    if tipo == "Reserva":
+                        nombre = jugador.find_element(By.CLASS_NAME, "player-name").text.strip()
+                        posicion = jugador.find_element(By.XPATH, ".//div[contains(@class, 'col-xs-1 center')]").text.strip()
+                        fitness = jugador.find_element(By.XPATH, ".//div[contains(@class, 'progress') and contains(@title, '%')]")
+                        fitness_value = int(fitness.get_attribute("title").replace('%', ''))
+                    else:
+                        nombre = jugador.find_element(By.CLASS_NAME, "lineup-player-name-content").text.strip()
+                        posicion = jugador.find_element(By.CLASS_NAME, "player-specific-position").text.strip()
+                        fitness = jugador.find_element(By.XPATH, ".//div[contains(@class, 'progress') and contains(@title, '%')]")
+                        fitness_value = int(fitness.get_attribute("title").replace('%', ''))
+
+                    datos.append({
+                        "element": jugador,
+                        "nombre": nombre,
+                        "posicion": posicion,
+                        "fitness": fitness_value
+                    })
+
+                    print(f"{tipo} -> {nombre} - {posicion} - {fitness_value}%")
+
+                except Exception as e:
+                    print(f"Error procesando {tipo}: {e}")
+            return datos
+
+        titulares_data = extraer_datos(titulares, "Titular")
+        suplentes_data = extraer_datos(suplentes, "Suplente")
+        reservas_data = extraer_datos(reservas, "Reserva")
+
+        return titulares_data, suplentes_data, reservas_data
+    
+    
+    
+    def get_function(pos):
+        if pos in ['LB', 'CB', 'RB']:
+            return 'Defensa'
+        if pos in ['CM', 'CDM', 'CAM', 'LM', 'RM']:
+            return 'Mediocampo'
+        if pos in ['ST', 'LW', 'RW']:
+            return 'Delantero'
+        if pos == 'GK':
+            return 'Portero'
+        return None
+
+    def encontrar_reemplazo(jugador, candidatos):
+        funcion = get_function(jugador['pos'])
+        posibles = []
+
+        for s in candidatos:
+            if s['fitness'] <= 90:
+                continue
+            if s['pos'] == jugador['pos']:
+                return s  # Mismo puesto
+            if get_function(s['pos']) == funcion and funcion != 'Portero':
+                posibles.append(s)
+
+        return posibles[0] if posibles else None
+    
+    
+    titulares, suplentes, reservas = self.get_lineup()
+
+    # Suplentes y reservas se combinan como candidatos para reemplazo
+    candidatos = suplentes + reservas
+    usados = set()
+
+    for titular in titulares:
+        if titular['fitness'] < 90:
+            reemplazo = encontrar_reemplazo(titular, [c for c in candidatos if c['nombre'] not in usados])
+            if reemplazo:
+                print(f"⚠️ Reemplazando a {titular['nombre']} ({titular['pos']}, {titular['fitness']}%) por {reemplazo['nombre']} ({reemplazo['pos']}, {reemplazo['fitness']}%)")
+                usados.add(reemplazo['nombre'])
+
+                # Aquí deberías implementar el método `realizar_cambio()`
+                # realizar_cambio(titular['element'], reemplazo['element'])
             
         
             
@@ -109,3 +243,4 @@ class OSMScraper:
 bot = OSMScraper("Petriski", "80201302926")
 bot.login()
 bot.seleccionar_equipo("FC Energie Cottbus")
+bot.get_lineup()
