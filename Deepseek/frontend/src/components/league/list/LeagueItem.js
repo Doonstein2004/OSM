@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ListItem, 
   ListItemText, 
@@ -32,6 +33,16 @@ import { getCountryFlag } from '../../../utils/helpers/countryHelpers';
  */
 const LeagueItem = ({ league, isExpanded, onToggleExpand }) => {
   const theme = useTheme();
+  const navigate = useNavigate();
+
+  const handleItemClick = (e) => {
+    navigate(`/leagues/${league.id}`);
+  };
+  
+  const handleToggleClick = (e) => {
+    e.stopPropagation(); // Detener propagación para evitar navegación
+    onToggleExpand(league.id);
+  };
   
   return (
     <ListItem 
@@ -44,7 +55,19 @@ const LeagueItem = ({ league, isExpanded, onToggleExpand }) => {
           bgcolor: 'action.hover',
         }
       }}
+      onClick={handleItemClick}
+      secondaryAction={
+        <IconButton 
+          edge="end" 
+          onClick={handleToggleClick}
+          aria-expanded={isExpanded}
+          aria-label="show more"
+        >
+          {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      }
     >
+
       <ListItemAvatar>
         <Avatar 
           alt={league.country || "Sin país"} 

@@ -9,7 +9,7 @@ import LoadingState from './LoadingState';
 import EmptyState from './EmptyState';
 
 // Servicios y utilidades
-import { fetchLeagueMatches, getAvailableJornadas, updateMatchResults } from '../../utils/api/matchService';
+import { fetchLeagueMatches, getAvailableJornadas, updateMatchComplete } from '../../utils/api/matchService';
 import { validateMatchData } from '../../utils/helpers/matchHelpers';
 
 /**
@@ -34,7 +34,15 @@ const MatchResults = ({ leagueId, onUpdateMatch }) => {
     home_shots: '',
     away_shots: '',
     home_goals: '',
-    away_goals: ''
+    away_goals: '',
+    home_formation: '',
+    away_formation: '',
+    home_style: '',
+    away_style: '',
+    home_attack: '',
+    away_attack: '',
+    home_kicks: '',
+    away_kicks: ''
   });
 
   // Cargar partidos cuando cambia el leagueId
@@ -97,7 +105,15 @@ const MatchResults = ({ leagueId, onUpdateMatch }) => {
       home_shots: match.home_shots || '',
       away_shots: match.away_shots || '',
       home_goals: match.home_goals || '',
-      away_goals: match.away_goals || ''
+      away_goals: match.away_goals || '',
+      home_formation: match.home_formation || '',
+      away_formation: match.away_formation || '',
+      home_style: match.home_style || '',
+      away_style: match.away_style || '',
+      home_attack: match.home_attack || '',
+      away_attack: match.away_attack || '',
+      home_kicks: match.home_kicks || '',
+      away_kicks: match.away_kicks || ''
     });
     setDialogOpen(true);
   };
@@ -138,9 +154,28 @@ const MatchResults = ({ leagueId, onUpdateMatch }) => {
         alert(validation.errorMessage);
         return;
       }
+
+      // Preparar todos los campos para actualizar
+    const updateData = {
+      home_possession: parseInt(postMatchData.home_possession) || 0,
+      away_possession: parseInt(postMatchData.away_possession) || 0,
+      home_shots: parseInt(postMatchData.home_shots) || 0,
+      away_shots: parseInt(postMatchData.away_shots) || 0,
+      home_goals: parseInt(postMatchData.home_goals) || 0,
+      away_goals: parseInt(postMatchData.away_goals) || 0,
+      // Campos avanzados
+      home_formation: postMatchData.home_formation || '',
+      away_formation: postMatchData.away_formation || '',
+      home_style: postMatchData.home_style || '',
+      away_style: postMatchData.away_style || '',
+      home_attack: postMatchData.home_attack || '',
+      away_attack: postMatchData.away_attack || '',
+      home_kicks: postMatchData.home_kicks || '',
+      away_kicks: postMatchData.away_kicks || ''
+    };
       
       // Actualizar resultados del partido
-      await updateMatchResults(editingMatch.id, postMatchData);
+      await updateMatchComplete(editingMatch.id, updateData);
       
       // Recargar datos y cerrar diálogo
       await loadMatches();

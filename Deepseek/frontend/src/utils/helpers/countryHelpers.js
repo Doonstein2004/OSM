@@ -138,7 +138,6 @@ export const COUNTRY_CODES = {
   'malta': 'mt',
   'mlt': 'mt',
   'estonia': 'ee',
-  'estonia': 'ee',
   'est': 'ee',
   'letonia': 'lv',
   'latvia': 'lv',

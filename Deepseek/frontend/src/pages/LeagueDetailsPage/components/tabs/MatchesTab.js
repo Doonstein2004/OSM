@@ -1,8 +1,15 @@
 import React from 'react';
-import { Box, Typography, Card, Divider, Grid, useTheme } from '@mui/material';
-import { SportsSoccer as SoccerIcon, Person as PersonIcon } from '@mui/icons-material';
+import { 
+  Box, Typography, Card, Divider, Grid, IconButton, Tooltip, useTheme 
+} from '@mui/material';
+import { 
+  SportsSoccer as SoccerIcon, 
+  Person as PersonIcon,
+  Edit as EditIcon,
+  Schedule as ScheduleIcon
+} from '@mui/icons-material';
 
-const MatchesTab = ({ matches }) => {
+const MatchesTab = ({ matches, onEditMatch, onEditSchedule }) => {
   const theme = useTheme();
   
   if (!matches || matches.length === 0) {
@@ -123,6 +130,27 @@ const MatchesTab = ({ matches }) => {
                           {match.away_formation} • {match.away_style}
                         </Typography>
                       </Box>
+                    </Grid>
+                    
+                    {/* Botones de edición */}
+                    <Grid item xs={12} sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                      <Tooltip title="Editar fecha/hora">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => onEditSchedule && onEditSchedule(match)}
+                          sx={{ mr: 1 }}
+                        >
+                          <ScheduleIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Editar datos">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => onEditMatch && onEditMatch(match)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Grid>
                   </Grid>
                 </Box>

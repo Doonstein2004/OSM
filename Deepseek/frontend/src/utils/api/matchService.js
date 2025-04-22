@@ -24,6 +24,17 @@ export const fetchLeagueMatches = async (leagueId) => {
   }
 };
 
+
+export const updateMatchComplete = async (matchId, matchData) => {
+  try {
+    const response = await axios.patch(`http://localhost:8000/matches/${matchId}/`, matchData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating match:', error);
+    throw error;
+  }
+};
+
 /**
  * Obtiene las jornadas disponibles de una lista de partidos
  * @param {Array} matches - Lista de partidos

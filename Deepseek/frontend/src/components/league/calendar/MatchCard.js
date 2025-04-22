@@ -7,9 +7,10 @@ import {
   IconButton, 
   Tooltip, 
   CardContent,
-  Divider
+  Divider,
+  Button
 } from '@mui/material';
-import { Edit as EditIcon, DeleteOutline as DeleteIcon, Person as PersonIcon } from '@mui/icons-material';
+import { Edit as EditIcon, DeleteOutline as DeleteIcon, Person as PersonIcon, Schedule as ScheduleIcon } from '@mui/icons-material';
 
 /**
  * Componente que muestra la información de un partido
@@ -21,7 +22,7 @@ import { Edit as EditIcon, DeleteOutline as DeleteIcon, Person as PersonIcon } f
  * @param {boolean} props.showDivider - Indica si se debe mostrar el divisor (default: true)
  * @returns {JSX.Element} Tarjeta de partido
  */
-const MatchCard = ({ match, onEdit, onDelete, showDivider = true }) => {
+const MatchCard = ({ match, onEdit, onDelete, onEditSchedule, showDivider = true }) => {
   return (
     <React.Fragment>
       {showDivider && <Divider />}
@@ -89,6 +90,11 @@ const MatchCard = ({ match, onEdit, onDelete, showDivider = true }) => {
 
           <Grid item xs={12}>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+            <Tooltip title="Editar fecha/hora">
+                <IconButton size="small" onClick={() => onEditSchedule(match)} sx={{ mr: 1 }}>
+                  <ScheduleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="Editar partido">
                 <IconButton size="small" onClick={() => onEdit(match)}>
                   <EditIcon fontSize="small" />

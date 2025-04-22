@@ -3,6 +3,7 @@ import { Box, Alert } from '@mui/material';
 
 // Componentes
 import CalendarHeader from './CalendarHeader';
+import ScheduleForm from './ScheduleForm';
 import MatchesList from './MatchesList';
 import MatchForm from './MatchForm';
 import LoadingState from './LoadingState';
@@ -29,6 +30,13 @@ import { validateMatchForm, prepareMatchData } from '../../../utils/validators/m
  */
 const LeagueCalendar = ({ leagueId, onUpdate }) => {
   // Estados
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [editScheduleMatch, setEditScheduleMatch] = useState(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    jornada: 1,
+    date: '',
+    time: ''
+  });
   const [calendar, setCalendar] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +53,46 @@ const LeagueCalendar = ({ leagueId, onUpdate }) => {
   });
   const [editMode, setEditMode] = useState(false);
   const [editMatchId, setEditMatchId] = useState(null);
+
+
+  const handleOpenScheduleDialog = (match) => {
+    setEditScheduleMatch(match);
+    setScheduleForm({
+      jornada: match.jornada,
+      date: match.date ? match.date.split('T')[0] : '',
+      time: match.time || ''
+    });
+    setScheduleDialogOpen(true);
+  };
+
+  // Función para manejar cambios en el formulario de programación
+const handleScheduleFormChange = (name, value) => {
+  setScheduleForm(prev => ({
+    ...prev,
+    [name]: value
+  }));
+};
+
+// Función para guardar cambios en la programación
+  const handleSubmitSchedule = async () => {
+    try {
+      const updatedMatchData = {
+        jornada: scheduleForm.jornada,
+        date: scheduleForm.date,
+        time: scheduleForm.time
+      };
+      
+      await updateMatch(editScheduleMatch.id, updatedMatchData);
+      loadCalendarData();
+      setScheduleDialogOpen(false);
+      
+      // Notificar al componente padre si es necesario
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Error al guardar programación:', error);
+      alert('Error al guardar programación: ' + (error.response?.data?.detail || error.message));
+    }
+  };
 
   // Cargar datos cuando cambia el leagueId
   useEffect(() => {
@@ -228,6 +276,7 @@ const LeagueCalendar = ({ leagueId, onUpdate }) => {
         <MatchesList 
           matches={filteredMatches} 
           onEditMatch={handleOpenDialog}
+          onEditSchedule={handleOpenScheduleDialog}
           onDeleteMatch={handleDeleteMatch}
         />
       )}
@@ -241,6 +290,17 @@ const LeagueCalendar = ({ leagueId, onUpdate }) => {
         onSubmit={handleSubmitMatch}
         onChange={handleFormChange}
       />
+
+        <ScheduleForm 
+          open={scheduleDialogOpen}
+          match={editScheduleMatch}
+          jornadas={jornadas}
+          formData={scheduleForm}
+          onChange={handleScheduleFormChange}
+          onClose={() => setScheduleDialogOpen(false)}
+          onSubmit={handleSubmitSchedule}
+        />
+
     </Box>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   Container, 
   Paper,
@@ -24,16 +25,20 @@ import ErrorView from './components/common/ErrorView';
 import MatchesTab from './components/tabs/MatchesTab';
 import StandingsTab from './components/tabs/StandingsTab';
 import StatisticsTab from './components/tabs/StatisticsTab';
+import ResultsDialog from '../../components/match/ResultsDialog';
 import MatchResults from '../../components/match/index';
 import LeagueSimulation from '../../components/league/simulation/index';
+import ScheduleForm from '../../components/league/calendar/ScheduleForm';
 
 // Utils
 import { fetchLeagueData } from './utils/dataFetcher';
+import { updateMatch } from '../../utils/api/calendar';
 
 const LeagueDetailsPage = () => {
   const { leagueId } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
+  const [allTeams, setAllTeams] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
   const [league, setLeague] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -42,6 +47,32 @@ const LeagueDetailsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showManagers, setShowManagers] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [currentMatch, setCurrentMatch] = useState(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    jornada: 1,
+    home_team_id: '',
+    away_team_id: '',
+    date: '',
+    time: ''
+  });
+  const [matchForm, setMatchForm] = useState({
+    home_goals: '',
+    away_goals: '',
+    home_shots: '',
+    away_shots: '',
+    home_possession: '',
+    away_possession: '',
+    home_formation: '',
+    away_formation: '',
+    home_style: '',
+    away_style: '',
+    home_attack: '',
+    away_attack: '',
+    home_kicks: '',
+    away_kicks: ''
+  });
 
   // Cargar datos al inicio
   useEffect(() => {
@@ -61,8 +92,25 @@ const LeagueDetailsPage = () => {
       }
     };
 
+
     loadData();
   }, [leagueId]);
+
+  // Cargar equipos al inicio junto con los otros datos
+useEffect(() => {
+  const loadTeams = async () => {
+    try {
+      const response = await axios.get(`http://localhost:8000/teams/`);
+      setAllTeams(response.data);
+    } catch (err) {
+      console.error('Error al cargar equipos:', err);
+    }
+  };
+  
+  if (!isLoading) {
+    loadTeams();
+  }
+}, [isLoading]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -77,6 +125,92 @@ const LeagueDetailsPage = () => {
       setStatistics(data.statistics);
     } catch (err) {
       console.error('Error al actualizar los datos:', err);
+    }
+  };
+
+  // Funciones para gestionar la edición de partidos
+  const handleEditSchedule = (match) => {
+    setCurrentMatch(match);
+    setScheduleForm({
+      jornada: match.jornada,
+      home_team_id: match.home_team_id || match.home_team.id,
+      away_team_id: match.away_team_id || match.away_team.id,
+      date: match.date ? match.date.split('T')[0] : '',
+      time: match.time || ''
+    });
+    setScheduleDialogOpen(true);
+  };
+  
+  const handleEditMatch = (match) => {
+    setCurrentMatch(match);
+    setMatchForm({
+      home_goals: match.home_goals || '',
+      away_goals: match.away_goals || '',
+      home_shots: match.home_shots || '',
+      away_shots: match.away_shots || '',
+      home_possession: match.home_possession || '',
+      away_possession: match.away_possession || '',
+      home_formation: match.home_formation || '',
+      away_formation: match.away_formation || '',
+      home_style: match.home_style || '',
+      away_style: match.away_style || '',
+      home_attack: match.home_attack || '',
+      away_attack: match.away_attack || '',
+      home_kicks: match.home_kicks || '',
+      away_kicks: match.away_kicks || ''
+    });
+    setEditDialogOpen(true);
+  };
+  
+  const handleScheduleChange = (name, value) => {
+    setScheduleForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  const handleMatchChange = (e) => {
+    const { name, value } = e.target;
+    setMatchForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  const handleSaveSchedule = async () => {
+    try {
+      // Validar que los equipos sean diferentes
+    if (scheduleForm.home_team_id === scheduleForm.away_team_id) {
+      alert('El equipo local y visitante no pueden ser el mismo');
+      return;
+    }
+      await updateMatch(currentMatch.id, {
+        jornada: scheduleForm.jornada,
+        home_team_id: scheduleForm.home_team_id,
+        away_team_id: scheduleForm.away_team_id,
+        date: scheduleForm.date,
+        time: scheduleForm.time
+      });
+      
+      // Recargar datos
+      refreshData();
+      setScheduleDialogOpen(false);
+    } catch (err) {
+      console.error('Error al guardar programación:', err);
+      alert('Error al guardar programación: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+  
+  const handleSaveMatch = async () => {
+    try {
+      await updateMatch(currentMatch.id, matchForm);
+      
+      // Recargar datos
+      refreshData();
+      setEditDialogOpen(false);
+    } catch (err) {
+      console.error('Error al guardar datos del partido:', err);
+      alert('Error al guardar datos del partido: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -155,7 +289,13 @@ const LeagueDetailsPage = () => {
           id="tabpanel-0"
           aria-labelledby="tab-0"
         >
-          {activeTab === 0 && <MatchesTab matches={matches} />}
+          {activeTab === 0 && (
+            <MatchesTab 
+              matches={matches}
+              onEditSchedule={handleEditSchedule}
+              onEditMatch={handleEditMatch}
+            />
+          )}
         </Box>
         
         <Box
@@ -207,6 +347,26 @@ const LeagueDetailsPage = () => {
           )}
         </Box>
       </Paper>
+      {/* Agregar diálogos de edición */}
+      <ScheduleForm
+        open={scheduleDialogOpen}
+        match={currentMatch}
+        jornadas={Array.from({ length: league?.jornadas || 0 }, (_, i) => i + 1)}
+        teams={allTeams}
+        formData={scheduleForm}
+        onChange={handleScheduleChange}
+        onClose={() => setScheduleDialogOpen(false)}
+        onSubmit={handleSaveSchedule}
+      />
+      
+      <ResultsDialog
+        open={editDialogOpen}
+        match={currentMatch}
+        postMatchData={matchForm}
+        onInputChange={handleMatchChange}
+        onClose={() => setEditDialogOpen(false)}
+        onSave={handleSaveMatch}
+      />
     </Container>
   );
 };

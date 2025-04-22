@@ -88,6 +88,11 @@ const LeagueList = ({onCreateLeague }) => {
 
   // Funciones de navegación
 
+  // También necesitamos añadir esta función para la navegación
+  const handleLeagueClick = (leagueId) => {
+    navigate(`/leagues/${leagueId}`);
+  };
+
   const handleViewMatches = (leagueId) => {
     navigate(`/leagues/${leagueId}`);
   };
